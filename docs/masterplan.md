@@ -18,7 +18,20 @@ Phase 0・Phase 1に着手し、以下まで完了。
 - `DESIGN_SYSTEM.md`のトーンを`app/globals.css`の`@theme`に移植（navy/accent/グレースケール/danger/角丸/シャドウ）。フォントは`next/font/google`でNoto Sans JP・Archivoを設定。
 - 共通コンポーネント：`Button`・`Panel`・`SectionLabel`・`PageHeader`・`Sidebar`・`AppShell`（モバイル768px以下でハンバーガー変形）・`AuthShell`を実装。
 - ヘッドレスChromeでログイン画面・デザインプレビュー（デスクトップ幅）のスクリーンショットを確認し、配色・レイアウトが意図通りであることを確認済み。**モバイル幅でのハンバーガーボタンの見た目は、この環境のヘッドレスChromeが不安定でスクリーンショットでは確認できなかった**（生成HTMLのマークアップ自体は正しいことをcurlで確認済み。サーバー情報管理アプリのmasterplanでも同種の環境起因の問題が記録されている）。実ブラウザでの確認は未実施。
-- まだ未着手：実際のSupabaseプロジェクトの作成・接続、Google OAuthクライアントへのリダイレクトURI追加、Vercelへのデプロイ連携、git初期化。
+
+**2026-08-01 追記：git/GitHub/Supabase接続まで完了**
+
+- ローカルでgit初期化・初回コミット済み。GitHubリポジトリ（`https://github.com/nagata-md/webdirectionapp.git`）を作成し`main`をpush済み。
+- Vercel側：プロジェクトのImport（GitHub連携）は依頼済みだが、**環境変数（`NEXT_PUBLIC_SUPABASE_URL`等）の登録はまだ完了していない**。次回セッションの最初のタスクとする。
+- Supabase側：新規プロジェクト（`https://dslihwmypnxihyzbwjyq.supabase.co`）を作成し、URL・publishable key・secret keyを`.env.local`に設定済み（Git管理外）。Google Cloud Console既存OAuthクライアントに、SupabaseのコールバックURL（`https://dslihwmypnxihyzbwjyq.supabase.co/auth/v1/callback`）を承認済みリダイレクトURIとして追加し、Supabase Authentication側でGoogleプロバイダーを有効化（Client ID/Secretを設定）。
+- **実機での疎通確認済み**：ローカル(`npm run dev`)で`/login`→「Googleでログイン」→Google認証→`/auth/callback`→`/projects`（プレースホルダー画面）への一連のログインフローが実際に成功したことをユーザー本人が確認。
+- ⚠️ **重要な未実装事項**：現時点では`marketingdept-llc.com`以外のGoogleアカウントでもログインできてしまう状態（ドメイン制限はPhase 3で実装予定のまま）。本番運用前に必ずPhase 3で対応すること。
+
+### 次回セッションの開始点
+
+1. **Vercel環境変数の設定**：Vercelプロジェクトの Settings → Environment Variables に `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY`（＝Supabaseのpublishable key） / `SUPABASE_SERVICE_ROLE_KEY`（＝Supabaseのsecret key）を登録し、再デプロイしてVercel上でもログインが通ることを確認する（Phase 0の残タスク）。
+2. Phase 0完了確認後、**Phase 2（データ層）**に進む：`supabase/migrations/`にspec §6準拠の全テーブル（`master`/`projects`/`project_owners`/`project_links`/`progress_groups`/`pages`/`schedule_overrides`/`estimate_versions`/`share_links`/`ai_meta_generation_logs`）のマイグレーションSQLを作成し、今回作成した本番Supabaseプロジェクトに適用する。RLSポリシー・`ai_api_key`列除外の徹底も同フェーズで行う。
+3. Phase 2の目処が立った時点で、Phase 3（認証・セッション管理）に戻り、ドメイン制限（`marketingdept-llc.com`以外を拒否）を実装する。
 
 以降、各フェーズ完了ごとに本セクションへ実績・発見事項・バグ修正を追記していく（`サーバー情報管理アプリ_masterplan.md`と同様の運用）。
 

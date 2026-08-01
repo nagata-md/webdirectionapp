@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+/*
+ * DESIGN_SYSTEM.md（名刺情報共有ツール／サーバー情報管理アプリと共通の社内ツールデザインシステム）
+ * §1〜§3のトークンをTailwind v4のCSS-firstコンフィグ（@theme）へ移植したもの。
+ * navy/accentは本ツール用に変更可能だが、グレースケール・dangerは他ツールと共通のまま踏襲する。
+ */
+@theme {
+  --color-navy: #0f2e4f;
+  --color-navy-hover: #163f6b;
+  --color-accent: #a61a72;
+  --color-accent-tint: #fff0ff;
+  --color-ink: #101820;
+  --color-muted: #6d6e71; /* gray-700相当: 補助テキスト */
+  --color-subtle: #9ba1a6; /* gray-500相当: プレースホルダー */
+  --color-subtle-2: #8c9298; /* gray-450相当 */
+  --color-border-strong: #c6cbcf; /* gray-400相当: 入力欄の枠 */
+  --color-border: #d9dcdf; /* gray-300相当: パネル・テーブルの枠 */
+  --color-surface: #f3f4f5; /* gray-100相当: ページ全体の背景 */
+  --color-surface-subtle: #fbfbfc; /* gray-050相当: テーブルヘッダー等 */
+  --color-danger: #b3261e;
+  --color-danger-tint: #fdedeb;
+
+  --radius-panel: 8px;
+  --radius-control: 6px;
+
+  --shadow-panel: 0 1px 4px rgba(15, 46, 79, 0.08);
+
+  --font-sans: var(--font-noto-sans-jp), "Hiragino Sans", -apple-system,
+    BlinkMacSystemFont, sans-serif;
+  --font-label: var(--font-archivo), sans-serif;
+}
+
+body {
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-weight: 700;
+  color: var(--color-navy);
+}
+
+a {
+  color: var(--color-navy);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}

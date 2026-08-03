@@ -12,6 +12,7 @@ export function ProjectTabs({ projectId }: { projectId: string }) {
     { label: "ディレクトリマップ", href: `${base}/directory-map` },
     { label: "スケジュール", href: `${base}/schedule` },
     { label: "見積もり", href: `${base}/estimate` },
+    { label: "メタ情報", href: `${base}/meta` },
   ];
 
   return (

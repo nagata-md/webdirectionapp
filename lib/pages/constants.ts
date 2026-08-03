@@ -13,6 +13,17 @@ export function pageTypeLabel(value: string): string {
   return PAGE_TYPES.find((t) => t.value === value)?.label ?? value;
 }
 
+// ページの進捗ステータス（spec §4.8、DBのCHECK制約と同じ日本語ラベルをそのまま使う）
+export const PAGE_STATUSES = [
+  "未着手",
+  "構成中",
+  "デザイン中",
+  "コーディング中",
+  "テスト中",
+  "公開済",
+] as const;
+export type PageStatus = (typeof PAGE_STATUSES)[number];
+
 export type PageNode = {
   id: string;
   name: string;

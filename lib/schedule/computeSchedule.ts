@@ -83,6 +83,12 @@ export function computeSchedule(input: ComputeScheduleInput): ComputeScheduleRes
         if (override) {
           start = override.overrideStart;
           end = override.overrideEnd;
+        } else if (phase === "構成") {
+          // 構成工程は並行作業人数の制限を適用せず、グループ内の全ページが常に同日着手する
+          // （2026-08-03改訂：レーン待ちによる開始日のズレを構成工程では発生させない）。
+          const duration = phaseDurationDays(page, phase, master);
+          start = shiftBusinessDays(readyTime, 0, weeklyOff, holidays);
+          end = shiftBusinessDays(start, duration - 1, weeklyOff, holidays);
         } else {
           const duration = phaseDurationDays(page, phase, master);
           const reserved = reserveLane(laneState, phase, readyTime, duration, weeklyOff, holidays);

@@ -261,4 +261,55 @@ describe("computeSchedule", () => {
     const p2Phases = p2.phases.map((ph) => ph.phase);
     expect(p2Phases).toEqual(["構成", "デザイン", "コーディング", "テストアップ", "公開"]);
   });
+
+  it("構成工程は並行作業人数の制限に関わらず同一グループの全ページが同日着手する", () => {
+    const input: ComputeScheduleInput = {
+      projectStartDate: "2026-01-05",
+      pages: [
+        {
+          id: "p1",
+          type: "lower",
+          complexity: "M",
+          wireNeeded: true,
+          copyNeeded: true,
+          cmsTier: null,
+          groupId: "g1",
+          priority: 1,
+        },
+        {
+          id: "p2",
+          type: "lower",
+          complexity: "M",
+          wireNeeded: true,
+          copyNeeded: true,
+          cmsTier: null,
+          groupId: "g1",
+          priority: 2,
+        },
+        {
+          id: "p3",
+          type: "lower",
+          complexity: "M",
+          wireNeeded: true,
+          copyNeeded: true,
+          cmsTier: null,
+          groupId: "g1",
+          priority: 3,
+        },
+      ],
+      groups: [{ id: "g1", sortOrder: 1 }],
+      // 構成のレーンは1のみ。他の工程のレーンも1のままだが、構成は制限を無視する想定
+      parallelByPhase: ALL_LANES_1,
+      master: baseMaster(),
+      overrides: [],
+    };
+
+    const result = computeSchedule(input);
+    const starts = ["p1", "p2", "p3"].map(
+      (id) => result.pages.find((p) => p.pageId === id)!.phases.find((ph) => ph.phase === "構成")!.start,
+    );
+
+    // 構成レーンが1でも、3ページとも同じ開始日(プロジェクト開始日)になる
+    expect(starts).toEqual(["2026-01-05", "2026-01-05", "2026-01-05"]);
+  });
 });

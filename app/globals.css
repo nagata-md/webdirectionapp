@@ -28,7 +28,7 @@
   --color-phase-cms: #b8860b;
   --color-phase-testup: #8a6aa0;
   --color-phase-publish: #1b7a3c;
-  --color-phase-wait: #d9dcdf;
+  --color-phase-wait: #e8a3bb; /* チェックバック・バッファ待ち期間。週末・休日のグレーと区別するためピンク系にする */
 
   --radius-panel: 8px;
   --radius-control: 6px;

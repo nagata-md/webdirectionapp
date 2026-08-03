@@ -110,6 +110,41 @@ export async function saveScheduleMaster(formData: FormData) {
   redirect("/master?saved=1");
 }
 
+const PUBLIC_HOLIDAYS_API = "https://holidays-jp.github.io/api/v1/date.json";
+
+// 日本の祝日を自動取得してマスタの休日カレンダーへ追加する（新規要件、2026-08-03）。
+// holidays-jpは認証不要の公開API。取得したもののうち、まだ未登録の日付だけを追加し、
+// 既存の手入力休日（夏季休業等）は変更しない。対象範囲は直近1年〜先2年に絞る
+// （全期間だと1955年分から返るため、実務上使う範囲だけに限定する）。
+export async function syncPublicHolidays() {
+  const supabase = await createClient();
+  const id = await getMasterId(supabase);
+
+  const response = await fetch(PUBLIC_HOLIDAYS_API);
+  if (!response.ok) throw new Error("祝日データの取得に失敗しました");
+  const allHolidays: Record<string, string> = await response.json();
+
+  const jstNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  const from = new Date(Date.UTC(jstNow.getUTCFullYear() - 1, 0, 1)).toISOString().slice(0, 10);
+  const to = new Date(Date.UTC(jstNow.getUTCFullYear() + 2, 11, 31)).toISOString().slice(0, 10);
+
+  const { data: master } = await supabase.from("master").select("holidays").eq("id", id).single();
+  const existing: { date: string; label: string }[] = master?.holidays ?? [];
+  const existingDates = new Set(existing.map((h) => h.date));
+
+  const additions = Object.entries(allHolidays)
+    .filter(([date]) => date >= from && date <= to && !existingDates.has(date))
+    .map(([date, label]) => ({ date, label }));
+
+  const merged = [...existing, ...additions].sort((a, b) => a.date.localeCompare(b.date));
+
+  const { error } = await supabase.from("master").update({ holidays: merged }).eq("id", id);
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/master");
+  redirect("/master?saved=1");
+}
+
 export async function saveHolidaysAndWeeklyOff(formData: FormData) {
   const supabase = await createClient();
   const id = await getMasterId(supabase);

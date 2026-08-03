@@ -13,6 +13,7 @@ import {
   saveDirectionAndTax,
   saveIssuerInfo,
   saveScheduleMaster,
+  syncPublicHolidays,
 } from "./actions";
 
 const numberInputClass =
@@ -257,7 +258,12 @@ export default async function MasterPage() {
       </Panel>
 
       <Panel className="mb-4">
-        <SectionLabel>休日カレンダー・定休日</SectionLabel>
+        <div className="mb-3.5 flex flex-wrap items-center justify-between gap-2">
+          <SectionLabel>休日カレンダー・定休日</SectionLabel>
+          <form action={syncPublicHolidays}>
+            <Button type="submit">祝日を自動取得（未登録分のみ追加）</Button>
+          </form>
+        </div>
         <HolidaysEditor
           initialHolidays={master.holidays ?? []}
           initialWeeklyOff={master.weekly_off ?? [0, 6]}

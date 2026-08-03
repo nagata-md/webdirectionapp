@@ -1,4 +1,4 @@
-import { SCHEDULE_PHASES, WEEKDAYS } from "@/lib/master/constants";
+import { SCHEDULE_PHASES, WEEKDAYS, schedulePhaseLabel } from "@/lib/master/constants";
 import { PHASE_COLOR_CLASS } from "@/lib/schedule/phaseColors";
 import { buildDateGrid } from "@/lib/schedule/dateGrid";
 import { compareDates, shiftCalendarDays, type Holiday } from "@/lib/schedule/businessDay";
@@ -83,8 +83,31 @@ export function ShareGantt({
     return (dayIndexByDate.get(dateStr) ?? 0) * DAY_WIDTH;
   }
 
+  const launchDate =
+    pageSchedules
+      .map((ps) => ps.phases.find((ph) => ph.phase === "公開")?.end)
+      .filter((d): d is string => Boolean(d))
+      .sort()
+      .at(-1) ?? null;
+  const overallWorkDays = launchDate
+    ? days.filter((d) => !d.isOff && d.date >= projectStartDate && d.date <= launchDate).length
+    : null;
+
   return (
     <div>
+      <div className="mb-4 flex flex-wrap gap-8 rounded-panel border border-border-strong bg-surface-subtle p-4">
+        <div>
+          <div className="text-[11px] text-subtle">公開予定日（最終ページ完了日）</div>
+          <div className="text-2xl font-bold text-navy">{launchDate ?? "-"}</div>
+        </div>
+        <div>
+          <div className="text-[11px] text-subtle">作業日数（プロジェクト開始〜公開予定日）</div>
+          <div className="text-2xl font-bold text-navy">
+            {overallWorkDays != null ? `${overallWorkDays}日` : "-"}
+          </div>
+        </div>
+      </div>
+
       <div className="overflow-x-auto">
         <div style={{ width: LEFT_WIDTH + totalWidth }}>
           <div className="flex">
@@ -113,7 +136,7 @@ export function ShareGantt({
               </div>
             ))}
           </div>
-          <div className="mb-2 flex">
+          <div className="flex">
             <div className="sticky left-0 z-10 shrink-0 bg-white" style={{ width: LEFT_WIDTH }} />
             {days.map((d) => (
               <div
@@ -128,85 +151,76 @@ export function ShareGantt({
             ))}
           </div>
 
-          <div className="flex flex-col gap-3">
-            {pageSchedules.map((ps) => {
-              const page = pageById.get(ps.pageId);
-              if (!page) return null;
+          <div className="relative">
+            <div className="pointer-events-none absolute inset-0" style={{ left: LEFT_WIDTH }}>
+              {days.map((d) => (
+                <div
+                  key={d.date}
+                  className={`absolute top-0 bottom-0 border-l border-border/60 ${
+                    d.isOff ? "bg-subtle/30" : ""
+                  }`}
+                  style={{ left: leftPx(d.date), width: DAY_WIDTH }}
+                />
+              ))}
+            </div>
 
-              const publishPhase = ps.phases.find((ph) => ph.phase === "公開");
-              const workDays =
-                publishPhase &&
-                days.filter(
-                  (d) => !d.isOff && d.date >= projectStartDate && d.date <= publishPhase.end,
-                ).length;
+            <div className="relative flex flex-col gap-3 pt-2">
+              {pageSchedules.map((ps) => {
+                const page = pageById.get(ps.pageId);
+                if (!page) return null;
 
-              const waitSegments: { start: string; end: string }[] = [];
-              for (let i = 0; i < ps.phases.length - 1; i += 1) {
-                const cur = ps.phases[i];
-                const next = ps.phases[i + 1];
-                const waitStart = shiftCalendarDays(cur.end, 1);
-                const waitEnd = shiftCalendarDays(next.start, -1);
-                if (compareDates(waitStart, waitEnd) <= 0) {
-                  waitSegments.push({ start: waitStart, end: waitEnd });
+                const waitSegments: { start: string; end: string }[] = [];
+                for (let i = 0; i < ps.phases.length - 1; i += 1) {
+                  const cur = ps.phases[i];
+                  const next = ps.phases[i + 1];
+                  const waitStart = shiftCalendarDays(cur.end, 1);
+                  const waitEnd = shiftCalendarDays(next.start, -1);
+                  if (compareDates(waitStart, waitEnd) <= 0) {
+                    waitSegments.push({ start: waitStart, end: waitEnd });
+                  }
                 }
-              }
 
-              return (
-                <div key={ps.pageId} className="flex items-start">
-                  <div
-                    className="sticky left-0 z-10 shrink-0 bg-white pr-3"
-                    style={{ width: LEFT_WIDTH }}
-                  >
-                    <div className="truncate text-[13px] font-semibold">{page.name}</div>
-                    <div className="mt-1 flex gap-4">
-                      <div>
-                        <div className="text-[10px] text-subtle">公開予定日</div>
-                        <div className="text-[15px] font-bold text-navy">
-                          {publishPhase?.end ?? "-"}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] text-subtle">作業日数</div>
-                        <div className="text-[15px] font-bold text-navy">
-                          {workDays != null ? `${workDays}日` : "-"}
-                        </div>
-                      </div>
+                return (
+                  <div key={ps.pageId} className="flex items-start">
+                    <div
+                      className="sticky left-0 z-10 shrink-0 bg-white pr-3"
+                      style={{ width: LEFT_WIDTH }}
+                    >
+                      <div className="truncate text-[13px] font-semibold">{page.name}</div>
+                    </div>
+                    <div className="relative h-7" style={{ width: totalWidth }}>
+                      {waitSegments.map((seg, i) => (
+                        <BarSegments
+                          key={`wait-${i}`}
+                          start={seg.start}
+                          end={seg.end}
+                          leftPx={leftPx}
+                          colorClass="bg-phase-wait"
+                          title={`チェックバック・バッファ待ち: ${seg.start} 〜 ${seg.end}`}
+                        />
+                      ))}
+                      {ps.phases.map((ph) => (
+                        <BarSegments
+                          key={ph.phase}
+                          start={ph.start}
+                          end={ph.end}
+                          leftPx={leftPx}
+                          colorClass={PHASE_COLOR_CLASS[ph.phase]}
+                          title={`${schedulePhaseLabel(ph.phase)}: ${ph.start} 〜 ${ph.end}`}
+                        />
+                      ))}
+                      {launchDate && (
+                        <div
+                          title={`公開（全ページ共通）: ${launchDate}`}
+                          style={{ left: leftPx(launchDate), width: DAY_WIDTH }}
+                          className="absolute top-0 h-7 rounded bg-black"
+                        />
+                      )}
                     </div>
                   </div>
-                  <div className="relative h-7" style={{ width: totalWidth }}>
-                    {days.map((d) => (
-                      <div
-                        key={d.date}
-                        className={`absolute top-0 h-7 border-l border-border/60 ${
-                          d.isOff ? "bg-subtle/30" : ""
-                        }`}
-                        style={{ left: leftPx(d.date), width: DAY_WIDTH }}
-                      />
-                    ))}
-                    {waitSegments.map((seg, i) => (
-                      <BarSegments
-                        key={`wait-${i}`}
-                        start={seg.start}
-                        end={seg.end}
-                        leftPx={leftPx}
-                        colorClass="bg-phase-wait"
-                        title={`チェックバック・バッファ待ち: ${seg.start} 〜 ${seg.end}`}
-                      />
-                    ))}
-                    {ps.phases.map((ph) => (
-                      <BarSegments
-                        key={ph.phase}
-                        start={ph.start}
-                        end={ph.end}
-                        leftPx={leftPx}
-                        colorClass={PHASE_COLOR_CLASS[ph.phase]}
-                        title={`${ph.phase}: ${ph.start} 〜 ${ph.end}`}
-                      />
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
@@ -215,9 +229,13 @@ export function ShareGantt({
         {SCHEDULE_PHASES.map((phase) => (
           <span key={phase} className="flex items-center gap-1.5">
             <span className={`inline-block h-3 w-3 rounded ${PHASE_COLOR_CLASS[phase]}`} />
-            {phase}
+            {schedulePhaseLabel(phase)}
           </span>
         ))}
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-3 w-3 rounded bg-black" />
+          公開（全ページ共通）
+        </span>
         <span className="flex items-center gap-1.5">
           <span className="inline-block h-3 w-3 rounded bg-phase-wait" />
           チェックバック・バッファ待ち

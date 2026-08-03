@@ -65,10 +65,22 @@ Phase 0・Phase 1に着手し、以下まで完了。
 - **実ブラウザでの動作確認済み**（ユーザー本人によるテスト）：単価表・標準待機日数・並行作業人数・休日カレンダー・定休日・ディレクション費/税率・発行元情報＋角印画像アップロード・AI APIキーのマスク表示、いずれも保存→リロードで値が保持されることを確認。
 - **バグ修正**：単価入力の`step`属性が`1000`固定になっており、7500円のような1000円単位でない金額がHTML5のネイティブバリデーションで弾かれる不具合を発見。`step="1"`に修正。
 
+**2026-08-03 追記：Phase 5（プロジェクト管理・基本情報）完了**
+
+- `app/(app)/projects/actions.ts`：`createProject`／`deleteProject`（プロジェクトが1件のみの場合は削除不可のバリデーションをサーバー側でも実施）／`updateProjectBasicInfo`／`saveOwners`／`saveProjectLinks`（`category`で`server`/`figma`を判定）を実装。
+- `app/(app)/projects/page.tsx`：プロジェクト一覧・新規作成フォーム。プロジェクトが1件の場合は削除ボタンを`disabled`にしてUIレベルでも防止。
+- `app/(app)/projects/[projectId]/page.tsx`：基本情報（クライアント名・プロジェクト名・着手日）編集フォーム、`OwnersEditor`（自社担当者）・`ProjectLinksEditor`（サーバー情報リンク／Figmaリンク、同一コンポーネントを`category`違いで2回利用）を配置。
+- **バグ修正・重要**：実ブラウザテストで「自社担当者・リンクの追加→保存→リロードで消える」不具合が発覚。原因は2つ複合していた。
+  1. 動的リスト入力欄でEnterキーを押すと、フォーム内の`type="submit"`ボタンが暗黙的に発火し、「+追加」を押す前の空の状態のまま送信されていた。
+  2. Enterキー対策として`preventDefault`+追加処理を入れたところ、**日本語IME変換確定のEnter（`isComposing`中）まで誤って追加処理を発火してしまい**、変換途中の文字列（例: 苗字だけ）で追加されてしまう新たな不具合を発生させた。`lib/ui/onEnterKey.ts`という共通ヘルパーを作り、`e.nativeEvent.isComposing`を見て変換確定中のEnterは無視するように修正。3コンポーネント（`HolidaysEditor`／`OwnersEditor`／`ProjectLinksEditor`）に適用。
+- **UX改善（ユーザー要望、Phase 4にも遡って適用）**：保存の成否が画面上わかりにくいという指摘を受け、`components/ui/SavedBanner.tsx`を新設。保存系Server Actionはすべて処理後に`redirect("<path>?saved=1")`する方式に統一し、バナーが「✓ 保存しました」を数秒表示してからURLの`?saved=1`を消す。Phase 4（マスタ設定）の5アクションもこの方式に統一済み。
+- 実データで最終確認：プロジェクト2件、自社担当者4件、サーバー/Figmaリンク各1件が正しく保存されていることをサービスロール経由で確認。
+
 ### 次回セッションの開始点
 
 1. Supabase Personal Access Tokenが失効済みか確認する（未確認のまま）。
-2. **Phase 5（プロジェクト管理・基本情報）**に進む：プロジェクトの作成・切替・削除、担当者、サーバー情報リンク・Figmaリンクの実装（spec §4.1）。
+2. **Phase 6（ディレクトリマップ・進行グループ管理）**に進む：ページCRUD・親子階層のツリー表示・進行グループ設定（spec §4.2・4.3）。
+3. 今後、動的リスト系の新規UIを作る際は`lib/ui/onEnterKey.ts`（IME対応済み）と`components/ui/SavedBanner.tsx`（保存フィードバック）を最初から使うこと。
 
 以降、各フェーズ完了ごとに本セクションへ実績・発見事項・バグ修正を追記していく（`サーバー情報管理アプリ_masterplan.md`と同様の運用）。
 

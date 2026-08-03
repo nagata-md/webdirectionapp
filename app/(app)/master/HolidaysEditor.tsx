@@ -5,6 +5,7 @@ import { WEEKDAYS, type Holiday } from "@/lib/master/constants";
 import { saveHolidaysAndWeeklyOff } from "./actions";
 import { Button } from "@/components/ui/Button";
 import { Tag } from "@/components/ui/Tag";
+import { onEnterKey } from "@/lib/ui/onEnterKey";
 
 export function HolidaysEditor({
   initialHolidays,
@@ -78,6 +79,7 @@ export function HolidaysEditor({
             type="date"
             value={newDate}
             onChange={(e) => setNewDate(e.target.value)}
+            onKeyDown={onEnterKey(addHoliday)}
             className="rounded-control border border-border-strong px-2.5 py-1.5 text-[13px]"
           />
           <input
@@ -85,6 +87,7 @@ export function HolidaysEditor({
             placeholder="名称（例: 元日）"
             value={newLabel}
             onChange={(e) => setNewLabel(e.target.value)}
+            onKeyDown={onEnterKey(addHoliday)}
             className="rounded-control border border-border-strong px-2.5 py-1.5 text-[13px]"
           />
           <Button type="button" onClick={addHoliday}>

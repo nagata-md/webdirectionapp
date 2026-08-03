@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { encrypt } from "@/lib/crypto";
@@ -57,6 +58,7 @@ export async function saveScheduleMaster(formData: FormData) {
 
   if (error) throw new Error(error.message);
   revalidatePath("/master");
+  redirect("/master?saved=1");
 }
 
 export async function saveHolidaysAndWeeklyOff(formData: FormData) {
@@ -78,6 +80,7 @@ export async function saveHolidaysAndWeeklyOff(formData: FormData) {
 
   if (error) throw new Error(error.message);
   revalidatePath("/master");
+  redirect("/master?saved=1");
 }
 
 export async function saveDirectionAndTax(formData: FormData) {
@@ -97,6 +100,7 @@ export async function saveDirectionAndTax(formData: FormData) {
 
   if (error) throw new Error(error.message);
   revalidatePath("/master");
+  redirect("/master?saved=1");
 }
 
 export async function saveIssuerInfo(formData: FormData) {
@@ -125,6 +129,7 @@ export async function saveIssuerInfo(formData: FormData) {
   const { error } = await supabase.from("master").update(update).eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/master");
+  redirect("/master?saved=1");
 }
 
 export async function saveAiSettings(formData: FormData) {
@@ -146,4 +151,5 @@ export async function saveAiSettings(formData: FormData) {
   const { error } = await supabase.from("master").update(update).eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/master");
+  redirect("/master?saved=1");
 }

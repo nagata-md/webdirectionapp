@@ -1,7 +1,9 @@
+import { Suspense } from "react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Panel, SectionLabel } from "@/components/ui/Panel";
 import { FormRow } from "@/components/ui/FormRow";
 import { Button } from "@/components/ui/Button";
+import { SavedBanner } from "@/components/ui/SavedBanner";
 import { COMPLEXITIES, COST_PHASES, SCHEDULE_PHASES } from "@/lib/master/constants";
 import { getAiKeyStatus, getMasterSettings, getStampSignedUrl } from "@/lib/master/data";
 import { HolidaysEditor } from "./HolidaysEditor";
@@ -25,6 +27,9 @@ export default async function MasterPage() {
   return (
     <div>
       <PageHeader title="マスタ設定" eyebrow="MASTER" />
+      <Suspense fallback={null}>
+        <SavedBanner />
+      </Suspense>
 
       <Panel className="mb-4">
         <SectionLabel>単価・工数マスタ / 標準待機日数 / 並行作業人数デフォルト</SectionLabel>

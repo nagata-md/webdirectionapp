@@ -21,6 +21,14 @@
   --color-danger: #b3261e;
   --color-danger-tint: #fdedeb;
 
+  /* ガントチャートの工程別配色（spec §4.6：工程ごとに色分け） */
+  --color-phase-composition: #5b7ea6;
+  --color-phase-design: #a6763f;
+  --color-phase-coding: #5f8f6b;
+  --color-phase-testup: #8a6aa0;
+  --color-phase-publish: #1b7a3c;
+  --color-phase-wait: #d9dcdf;
+
   --radius-panel: 8px;
   --radius-control: 6px;
 

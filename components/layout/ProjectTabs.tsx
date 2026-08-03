@@ -10,6 +10,7 @@ export function ProjectTabs({ projectId }: { projectId: string }) {
   const tabs = [
     { label: "基本情報", href: base },
     { label: "ディレクトリマップ", href: `${base}/directory-map` },
+    { label: "スケジュール", href: `${base}/schedule` },
   ];
 
   return (

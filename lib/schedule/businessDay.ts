@@ -77,6 +77,16 @@ export function compareDates(a: DateString, b: DateString): number {
   return toEpochDay(a) - toEpochDay(b);
 }
 
+// 暦日（営業日を考慮しない、単純なカレンダー日数）での差分・シフト。
+// 既存の手動オーバーライドを「同じ日数分だけ」平行移動させる用途（cascade_following）で使う。
+export function diffCalendarDays(a: DateString, b: DateString): number {
+  return toEpochDay(a) - toEpochDay(b);
+}
+
+export function shiftCalendarDays(dateStr: DateString, days: number): DateString {
+  return fromEpochDay(toEpochDay(dateStr) + days);
+}
+
 export function maxDate(dates: DateString[]): DateString | null {
   if (dates.length === 0) return null;
   return dates.reduce((max, d) => (compareDates(d, max) > 0 ? d : max));

@@ -123,13 +123,27 @@ Phase 0・Phase 1に着手し、以下まで完了。
 - 実ブラウザでの動作確認済み（ユーザー本人）：ガントチャート表示、工程クリックでの編集、オーバーライド後の見た目（枠線）変化、工程単位リセット、変更履歴（変更者・日時・期間）の記録を確認。実データで`edited_by_email`が正しく記録されることも確認済み。
 - ⚠️ **未検証**：進行グループが2つ以上あり、かつ構成工程の変更でグループ完了日が実際に変わるケース（「次グループ以降を再計算する／据え置く」の分岐の実質的な違い）は、テストデータに進行グループが1つしかなく検証できていない。Phase 9以降で複数グループのプロジェクトができた際に確認すること。
 
+**2026-08-03 追記：Phase 9（見積もり・PDF発行・バージョン管理）完了**
+
+- Supabase Personal Access Tokenが失効していたため、マイグレーション適用時に再度発行してもらった（`edited_by_email`同様、`estimate_versions.created_by_email`列の追加のため）。
+- マイグレーション`20260803045251_estimate_versions_creator_email.sql`：`estimate_versions.created_by_email`を追加（`schedule_overrides.edited_by_email`と同じ理由・同じ方針）。
+- `@react-pdf/renderer`を導入。**日本語フォントは別途調達が必要**（デフォルトフォントはCJKグリフを持たない）。Google Fonts配布元（google/fontsリポジトリ）からNoto Sans JPの可変フォント（`NotoSansJP[wght].ttf`、約9.5MB）を取得し`assets/fonts/`に配置。静的ウェイト別ファイルはこのリポジトリに存在しなかったため可変フォントをそのまま使用。本実装前に最小スクリプトで日本語グリフが正しく描画されることを実際にPDF出力して確認済み。
+- `lib/estimate/calculate.ts`：`computeEstimate()`（①ディレクション費＝月額×暦月数、②ページ別コスト＝複雑度別単価の合算＋個別費用、③追加項目の合計、税抜小計・消費税・税込合計）。暦月カウントは要件定義書の方針通り。Vitestで6件のユニットテストを作成し全件成功。
+- `lib/estimate/loadProjectEstimate.ts`：見積もり画面とCSV出力の両方から使う共通データ取得・計算ローダー。
+- `lib/estimate/quoteNumber.ts`：見積番号を`EST-YYYYMMDD-連番`で採番（JST基準の日付、同日発行件数をService Role経由でカウント）。
+- `lib/estimate/pdfTemplate.tsx`：見積番号・発行日・有効期限・御中・件名・①→②→③の内訳・小計/税/合計・発行元情報＋角印画像（Service Role経由でStorageから直接ダウンロードしbase64データURIとして埋め込み、署名付きURLへの追加の依存を避けた）。
+- `app/(app)/projects/[projectId]/estimate/`：`LineItemsEditor.tsx`（追加項目の動的リスト、`onEnterKey`・保存後`?saved=1`の方式を踏襲）、`actions.tsx`（`saveLineItems`／`issueEstimatePdf`：PDF生成→Storage（非公開バケット`estimate-pdfs`）へアップロード→`estimate_versions`へ`estimate_data`のスナップショットとともに記録）、`csv/route.ts`（BOM付きUTF-8 CSV、Content-Dispositionでダウンロード）、`page.tsx`（内訳表示・CSVボタン・PDF発行ボタン・発行済みバージョン一覧＋署名付きURLでの再ダウンロード）。
+- **実データでイミュータブル性を確認**：見積書を3回発行する過程でマスタ単価を実際に変更してもらい、変更前に発行した1件目・2件目の`estimate_data`（ページコスト等）が変更後もそのまま保持され、3件目（変更後に発行）だけ新しい単価を反映していることをサービスロール経由で確認。設計通りに機能している。
+- 実ブラウザでの動作確認済み（ユーザー本人）：内訳表示順・追加項目の追加/保存・CSVダウンロード・PDF発行・PDF内の日本語表示・発行済みバージョン一覧・PDF再ダウンロード・イミュータブル性、すべて確認。
+
 ### 次回セッションの開始点
 
 1. Supabase Personal Access Tokenが失効済みか確認する。
-2. **Phase 9（見積もり・PDF発行・バージョン管理）**に進む：見積もり計算・追加項目（素材費/値引き）・CSVエクスポート・`@react-pdf/renderer`での見積書PDF発行・`estimate_versions`によるバージョン管理・イミュータブル性の確認（spec §4.7・4.11）。
+2. **Phase 10（メタ情報・AIメタ情報一括生成）**に進む：メタ情報編集UI、Claude API連携（`master.ai_api_key`をサーバーサイドで復号）、指示文入力→全ページ情報を読み込んでの一括生成→プレビュー→反映、生成ログ（spec §4.8・4.9）。
 3. 動的リスト系の新規UIを作る際は`lib/ui/onEnterKey.ts`（IME対応済み）と`components/ui/SavedBanner.tsx`（保存フィードバック）を最初から使うこと。
-4. 進行グループが2つ以上あるプロジェクトで、構成工程オーバーライド時の「次グループ以降を再計算する／据え置く」の分岐を実際に確認する機会があれば確認しておく。
+4. 進行グループが2つ以上あるプロジェクトで、構成工程オーバーライド時の「次グループ以降を再計算する／据え置く」の分岐を実際に確認する機会があれば確認しておく（Phase 8からの継続課題）。
 5. ロジック系コード（スケジュール計算・見積もり計算等）はVitestでユニットテストを書く方針を継続する。
+6. PDF等で日本語を扱う新規機能を追加する場合は、`assets/fonts/NotoSansJP-Regular.ttf`（実体は可変フォント）を再利用できる。
 
 以降、各フェーズ完了ごとに本セクションへ実績・発見事項・バグ修正を追記していく（`サーバー情報管理アプリ_masterplan.md`と同様の運用）。
 

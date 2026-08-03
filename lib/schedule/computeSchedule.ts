@@ -13,12 +13,19 @@ import type {
 
 // 構成は「ワイヤー＋コピー」を先に合算してから切り上げ、他の工程は単体で切り上げる
 // （確定方針：工程ごとに合計して切り上げ）。
+// TOPページは通常のratesではなくtopRates（別建てマスタ）を参照する（Phase 12）。
+// CMS構築はcmsTierが設定されているページのみ対象で、複雑度ごとのcmsRatesから日数を取る。
 function phaseDurationDays(
   page: SchedulePageInput,
   phase: SchedulePhase,
-  rates: ComputeScheduleInput["master"]["rates"],
+  master: Pick<ComputeScheduleInput["master"], "rates" | "topRates" | "cmsRates">,
 ): number {
-  const complexityRates = rates[page.complexity] ?? {};
+  if (phase === "CMS構築") {
+    const cms = page.cmsTier ? master.cmsRates[page.cmsTier] : undefined;
+    return Math.max(1, Math.ceil(cms?.days ?? 0));
+  }
+
+  const complexityRates = (page.type === "top" ? master.topRates : master.rates)[page.complexity] ?? {};
   if (phase === "構成") {
     const wire = page.wireNeeded ? (complexityRates["ワイヤー"]?.days ?? 0) : 0;
     const copy = page.copyNeeded ? (complexityRates["コピー"]?.days ?? 0) : 0;
@@ -38,7 +45,7 @@ function findOverride(
 
 export function computeSchedule(input: ComputeScheduleInput): ComputeScheduleResult {
   const { projectStartDate, pages, groups, parallelByPhase, master, overrides } = input;
-  const { weeklyOff, holidays, standards, rates } = master;
+  const { weeklyOff, holidays, standards } = master;
 
   const buckets = buildGroupBuckets(groups, pages);
   const pageById = new Map(pages.map((p) => [p.id, p]));
@@ -65,6 +72,10 @@ export function computeSchedule(input: ComputeScheduleInput): ComputeScheduleRes
       let readyTime = nextGroupStart;
 
       for (const phase of SCHEDULE_PHASES) {
+        // CMS構築はcms_tierが設定されているページのみ対象（Phase 12）。
+        // 対象外のページはこの工程自体をスキップする（readyTimeも進めない）。
+        if (phase === "CMS構築" && !page.cmsTier) continue;
+
         const override = findOverride(overrides, page.id, phase);
         let start: DateString;
         let end: DateString;
@@ -73,7 +84,7 @@ export function computeSchedule(input: ComputeScheduleInput): ComputeScheduleRes
           start = override.overrideStart;
           end = override.overrideEnd;
         } else {
-          const duration = phaseDurationDays(page, phase, rates);
+          const duration = phaseDurationDays(page, phase, master);
           const reserved = reserveLane(laneState, phase, readyTime, duration, weeklyOff, holidays);
           start = reserved.start;
           end = reserved.end;

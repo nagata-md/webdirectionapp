@@ -16,11 +16,14 @@ export async function GET(
   const { projectId } = await params;
   const { projectName, estimate } = await loadProjectEstimate(projectId);
 
-  // 表示順(確定): ①ディレクション費 → ②ページ別コスト → ③追加項目
+  // 表示順(確定): ①ディレクション費 → ②ページ別コスト（CMS構築費は個別行） → ③追加項目
   const rows: (string | number)[][] = [["項目", "金額"]];
   rows.push(["ディレクション費", estimate.directionFee]);
   for (const p of estimate.pages) {
     rows.push([p.pageName, p.cost]);
+  }
+  for (const c of estimate.cmsCosts) {
+    rows.push([`${c.pageName} CMS構築${c.tier}`, c.cost]);
   }
   for (const l of estimate.lineItems) {
     rows.push([l.label, l.amount]);

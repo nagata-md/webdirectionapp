@@ -4,7 +4,14 @@ import { useState } from "react";
 import { deletePage, updatePage } from "./actions";
 import { Button } from "@/components/ui/Button";
 import { Tag } from "@/components/ui/Tag";
-import { PAGE_TYPES, pageTypeLabel, type PageNode, type ProgressGroup } from "@/lib/pages/constants";
+import {
+  CMS_TIERS,
+  PAGE_TYPES,
+  cmsTierLabel,
+  pageTypeLabel,
+  type PageNode,
+  type ProgressGroup,
+} from "@/lib/pages/constants";
 import { COMPLEXITIES } from "@/lib/master/constants";
 
 const inputClass = "rounded-control border border-border-strong px-2.5 py-1.5 text-[13px]";
@@ -23,6 +30,7 @@ export function PageRow({
   projectId: string;
 }) {
   const [isEditing, setIsEditing] = useState(false);
+  const [editingType, setEditingType] = useState(page.type);
   const children = allPages
     .filter((p) => p.parent_id === page.id)
     .sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name));
@@ -38,15 +46,12 @@ export function PageRow({
           <span className="font-semibold">{page.name}</span>
           <Tag>{pageTypeLabel(page.type)}</Tag>
           <Tag>{page.complexity}</Tag>
-          {!page.wire_needed && <Tag>ワイヤー不要</Tag>}
-          {!page.copy_needed && <Tag>コピー不要</Tag>}
+          <Tag>{page.wire_needed ? "ワイヤー" : "ワイヤー不要"}</Tag>
+          <Tag>{page.copy_needed ? "コピー" : "コピー不要"}</Tag>
+          {page.cms_tier && <Tag>{cmsTierLabel(page.cms_tier)}</Tag>}
+          {page.mobile_menu_needed && <Tag>スマホ対応メニュー</Tag>}
           {groupName && <Tag>{groupName}</Tag>}
           <span className="text-[12px] text-subtle">優先度 {page.priority}</span>
-          {page.extra_cost > 0 && (
-            <span className="text-[12px] text-subtle">
-              個別費用 {page.extra_cost.toLocaleString()}円
-            </span>
-          )}
           <div className="ml-auto flex gap-1.5">
             <Button type="button" onClick={() => setIsEditing(true)}>
               編集
@@ -84,7 +89,12 @@ export function PageRow({
 
           <div>
             <label className="mb-1 block text-[12px] font-semibold text-muted">種別</label>
-            <select name="type" defaultValue={page.type} className={inputClass}>
+            <select
+              name="type"
+              value={editingType}
+              onChange={(e) => setEditingType(e.target.value)}
+              className={inputClass}
+            >
               {PAGE_TYPES.map((t) => (
                 <option key={t.value} value={t.value}>
                   {t.label}
@@ -139,13 +149,14 @@ export function PageRow({
           </div>
 
           <div>
-            <label className="mb-1 block text-[12px] font-semibold text-muted">個別費用（円）</label>
-            <input
-              type="number"
-              name="extraCost"
-              defaultValue={page.extra_cost}
-              className={`${inputClass} w-28`}
-            />
+            <label className="mb-1 block text-[12px] font-semibold text-muted">CMS構築費</label>
+            <select name="cmsTier" defaultValue={page.cms_tier ?? ""} className={inputClass}>
+              {CMS_TIERS.map((tier) => (
+                <option key={tier} value={tier}>
+                  {tier ? `CMS構築${tier}` : "なし"}
+                </option>
+              ))}
+            </select>
           </div>
 
           <label className="flex items-center gap-1.5 pb-2 text-[13px]">
@@ -156,6 +167,16 @@ export function PageRow({
             <input type="checkbox" name="copyNeeded" defaultChecked={page.copy_needed} />
             コピー要
           </label>
+          {editingType === "top" && (
+            <label className="flex items-center gap-1.5 pb-2 text-[13px]">
+              <input
+                type="checkbox"
+                name="mobileMenuNeeded"
+                defaultChecked={page.mobile_menu_needed}
+              />
+              スマホ対応メニュー（メガメニュー）を含める
+            </label>
+          )}
 
           <Button type="submit" variant="primary">
             保存

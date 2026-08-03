@@ -3,6 +3,8 @@ import type { SchedulePhase } from "@/lib/master/constants";
 
 export type MasterForSchedule = {
   rates: Record<string, Record<string, { days: number; cost: number }>>;
+  topRates: Record<string, Record<string, { days: number; cost: number }>>;
+  cmsRates: Record<string, { days: number; cost: number }>;
   standards: Record<string, { checkback: number; buffer: number }>;
   weeklyOff: number[];
   holidays: Holiday[];
@@ -10,9 +12,11 @@ export type MasterForSchedule = {
 
 export type SchedulePageInput = {
   id: string;
+  type: string;
   complexity: string;
   wireNeeded: boolean;
   copyNeeded: boolean;
+  cmsTier: string | null;
   groupId: string | null;
   priority: number;
 };

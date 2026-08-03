@@ -16,10 +16,15 @@ function baseMaster(overrides: Partial<MasterForSchedule> = {}): MasterForSchedu
         公開: { days: 1, cost: 0 },
       },
     },
+    topRates: {},
+    cmsRates: {
+      M: { days: 1, cost: 0 },
+    },
     standards: {
       構成: { checkback: 0, buffer: 0 },
       デザイン: { checkback: 0, buffer: 0 },
       コーディング: { checkback: 0, buffer: 0 },
+      "CMS構築": { checkback: 0, buffer: 0 },
       テストアップ: { checkback: 0, buffer: 0 },
       公開: { checkback: 0, buffer: 0 },
     },
@@ -29,14 +34,30 @@ function baseMaster(overrides: Partial<MasterForSchedule> = {}): MasterForSchedu
   };
 }
 
-const ALL_LANES_1 = { 構成: 1, デザイン: 1, コーディング: 1, テストアップ: 1, 公開: 1 };
+const ALL_LANES_1 = {
+  構成: 1,
+  デザイン: 1,
+  コーディング: 1,
+  "CMS構築": 1,
+  テストアップ: 1,
+  公開: 1,
+};
 
 describe("computeSchedule", () => {
   it("単一ページ・待機日数0の場合、工程が連続して積み上がる", () => {
     const input: ComputeScheduleInput = {
       projectStartDate: "2026-01-05", // 月
       pages: [
-        { id: "p1", complexity: "M", wireNeeded: true, copyNeeded: true, groupId: null, priority: 1 },
+        {
+          id: "p1",
+          type: "lower",
+          complexity: "M",
+          wireNeeded: true,
+          copyNeeded: true,
+          cmsTier: null,
+          groupId: null,
+          priority: 1,
+        },
       ],
       groups: [],
       parallelByPhase: ALL_LANES_1,
@@ -66,8 +87,26 @@ describe("computeSchedule", () => {
     const input: ComputeScheduleInput = {
       projectStartDate: "2026-01-05",
       pages: [
-        { id: "p1", complexity: "M", wireNeeded: true, copyNeeded: true, groupId: "g1", priority: 1 },
-        { id: "p2", complexity: "M", wireNeeded: true, copyNeeded: true, groupId: "g2", priority: 1 },
+        {
+          id: "p1",
+          type: "lower",
+          complexity: "M",
+          wireNeeded: true,
+          copyNeeded: true,
+          cmsTier: null,
+          groupId: "g1",
+          priority: 1,
+        },
+        {
+          id: "p2",
+          type: "lower",
+          complexity: "M",
+          wireNeeded: true,
+          copyNeeded: true,
+          cmsTier: null,
+          groupId: "g2",
+          priority: 1,
+        },
       ],
       groups: [
         { id: "g1", sortOrder: 1 },
@@ -95,8 +134,26 @@ describe("computeSchedule", () => {
     const input: ComputeScheduleInput = {
       projectStartDate: "2026-01-05",
       pages: [
-        { id: "p1", complexity: "M", wireNeeded: false, copyNeeded: false, groupId: null, priority: 1 },
-        { id: "p2", complexity: "M", wireNeeded: false, copyNeeded: false, groupId: null, priority: 2 },
+        {
+          id: "p1",
+          type: "lower",
+          complexity: "M",
+          wireNeeded: false,
+          copyNeeded: false,
+          cmsTier: null,
+          groupId: null,
+          priority: 1,
+        },
+        {
+          id: "p2",
+          type: "lower",
+          complexity: "M",
+          wireNeeded: false,
+          copyNeeded: false,
+          cmsTier: null,
+          groupId: null,
+          priority: 2,
+        },
       ],
       groups: [],
       // 構成は不要(wire/copyともfalseなので1営業日扱い)、デザインのレーンを1に絞って競合させる
@@ -119,8 +176,26 @@ describe("computeSchedule", () => {
     const input: ComputeScheduleInput = {
       projectStartDate: "2026-01-05",
       pages: [
-        { id: "p1", complexity: "M", wireNeeded: true, copyNeeded: true, groupId: "g1", priority: 1 },
-        { id: "p2", complexity: "M", wireNeeded: true, copyNeeded: true, groupId: "g2", priority: 1 },
+        {
+          id: "p1",
+          type: "lower",
+          complexity: "M",
+          wireNeeded: true,
+          copyNeeded: true,
+          cmsTier: null,
+          groupId: "g1",
+          priority: 1,
+        },
+        {
+          id: "p2",
+          type: "lower",
+          complexity: "M",
+          wireNeeded: true,
+          copyNeeded: true,
+          cmsTier: null,
+          groupId: "g2",
+          priority: 1,
+        },
       ],
       groups: [
         { id: "g1", sortOrder: 1 },
@@ -137,5 +212,53 @@ describe("computeSchedule", () => {
     const result = computeSchedule(input);
     // グループ2の起点は自動計算値(01-06)ではなく、オーバーライドされた01-20になる
     expect(result.groupStartDates["g2"]).toBe("2026-01-20");
+  });
+
+  it("CMS構築はcmsTierが設定されたページのみコーディング後・テストアップ前に挿入される", () => {
+    const input: ComputeScheduleInput = {
+      projectStartDate: "2026-01-05",
+      pages: [
+        {
+          id: "p1",
+          type: "lower",
+          complexity: "M",
+          wireNeeded: true,
+          copyNeeded: true,
+          cmsTier: "M",
+          groupId: null,
+          priority: 1,
+        },
+        {
+          id: "p2",
+          type: "lower",
+          complexity: "M",
+          wireNeeded: true,
+          copyNeeded: true,
+          cmsTier: null,
+          groupId: null,
+          priority: 2,
+        },
+      ],
+      groups: [],
+      parallelByPhase: ALL_LANES_1,
+      master: baseMaster(),
+      overrides: [],
+    };
+
+    const result = computeSchedule(input);
+    const p1 = result.pages.find((p) => p.pageId === "p1")!;
+    const p2 = result.pages.find((p) => p.pageId === "p2")!;
+
+    const p1Phases = p1.phases.map((ph) => ph.phase);
+    expect(p1Phases).toEqual(["構成", "デザイン", "コーディング", "CMS構築", "テストアップ", "公開"]);
+
+    // CMS構築はコーディング直後に開始する
+    const p1Coding = p1.phases.find((ph) => ph.phase === "コーディング")!;
+    const p1Cms = p1.phases.find((ph) => ph.phase === "CMS構築")!;
+    expect(p1Cms.start > p1Coding.end).toBe(true);
+
+    // cmsTierがないページにはCMS構築の工程自体が存在しない
+    const p2Phases = p2.phases.map((ph) => ph.phase);
+    expect(p2Phases).toEqual(["構成", "デザイン", "コーディング", "テストアップ", "公開"]);
   });
 });

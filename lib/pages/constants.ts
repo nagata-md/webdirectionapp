@@ -24,6 +24,15 @@ export const PAGE_STATUSES = [
 ] as const;
 export type PageStatus = (typeof PAGE_STATUSES)[number];
 
+// CMS構築費の区分（Phase 12。個別費用の自由入力欄を置き換えるドロップダウン）
+export const CMS_TIERS = ["", "S", "M", "L"] as const;
+export type CmsTier = "" | "S" | "M" | "L";
+
+export function cmsTierLabel(value: string | null): string {
+  if (!value) return "なし";
+  return `CMS構築${value}`;
+}
+
 export type PageNode = {
   id: string;
   name: string;
@@ -32,7 +41,8 @@ export type PageNode = {
   parent_id: string | null;
   wire_needed: boolean;
   copy_needed: boolean;
-  extra_cost: number;
+  cms_tier: string | null;
+  mobile_menu_needed: boolean;
   group_id: string | null;
   priority: number;
 };

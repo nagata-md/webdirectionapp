@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { DEFAULT_PROGRESS_GROUPS } from "@/lib/pages/defaultGroups";
 
 export async function createProject(formData: FormData) {
   const projectName = String(formData.get("projectName") ?? "").trim();
@@ -24,6 +25,15 @@ export async function createProject(formData: FormData) {
   if (error || !data) {
     throw new Error(error?.message ?? "プロジェクトの作成に失敗しました");
   }
+
+  const { error: groupsError } = await supabase.from("progress_groups").insert(
+    DEFAULT_PROGRESS_GROUPS.map((name, index) => ({
+      project_id: data.id,
+      name,
+      sort_order: index + 1,
+    })),
+  );
+  if (groupsError) throw new Error(groupsError.message);
 
   revalidatePath("/projects");
   redirect(`/projects/${data.id}`);

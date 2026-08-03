@@ -41,6 +41,22 @@ export async function saveLineItems(formData: FormData) {
   redirect(`/projects/${projectId}/estimate?saved=1`);
 }
 
+export async function saveEstimateRemarks(formData: FormData) {
+  const projectId = String(formData.get("projectId") ?? "");
+  if (!projectId) throw new Error("プロジェクトIDが指定されていません");
+
+  const remarks = String(formData.get("remarks") ?? "").trim();
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("projects")
+    .update({ estimate_remarks: remarks || null })
+    .eq("id", projectId);
+  if (error) throw new Error(error.message);
+
+  redirect(`/projects/${projectId}/estimate?saved=1`);
+}
+
 async function loadIssuerData(): Promise<{
   companyName: string | null;
   address: string | null;
@@ -83,7 +99,7 @@ export async function issueEstimatePdf(formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [{ clientName, projectName, estimate }, issuerData] = await Promise.all([
+  const [{ clientName, projectName, estimate, aggregated }, issuerData] = await Promise.all([
     loadProjectEstimate(projectId),
     loadIssuerData(),
   ]);
@@ -98,19 +114,32 @@ export async function issueEstimatePdf(formData: FormData) {
     .eq("project_id", projectId);
   const versionNumber = (existingVersionCount ?? 0) + 1;
 
+  // PDFは集計見積もりベースで発行する（Phase 12、詳細見積もりは画面表示のみ）
   const pdfData = {
     quoteNumber,
     issuedAt: jstToday,
     validUntil,
     clientName: clientName ?? "",
     projectName: projectName,
-    directionFee: estimate.directionFee,
-    pages: estimate.pages.map((p) => ({ pageName: p.pageName, cost: p.cost })),
-    lineItems: estimate.lineItems.map((l) => ({ label: l.label, amount: l.amount })),
-    subtotal: estimate.subtotal,
-    taxRate: estimate.taxRate,
-    taxAmount: estimate.taxAmount,
-    total: estimate.total,
+    directionFee: aggregated.directionFee,
+    directionMonths: aggregated.directionMonths,
+    directionMonthlyRate: aggregated.directionMonthlyRate,
+    topLines: aggregated.topLines,
+    tallyLines: aggregated.tallyLines,
+    cmsLines: aggregated.cmsCosts.map((c) => ({
+      label: `${c.pageName} CMS構築${c.tier}`,
+      quantity: 1,
+      unit: "式",
+      unitPrice: c.cost,
+      amount: c.cost,
+    })),
+    testVerificationTotal: aggregated.testVerificationTotal,
+    lineItems: aggregated.lineItems.map((l) => ({ label: l.label, amount: l.amount })),
+    subtotal: aggregated.subtotal,
+    taxRate: aggregated.taxRate,
+    taxAmount: aggregated.taxAmount,
+    total: aggregated.total,
+    remarks: aggregated.remarks,
     issuer: {
       companyName: issuerData.companyName,
       address: issuerData.address,
@@ -128,14 +157,11 @@ export async function issueEstimatePdf(formData: FormData) {
     .upload(pdfPath, pdfBuffer, { contentType: "application/pdf", upsert: false });
   if (uploadError) throw new Error(uploadError.message);
 
+  // 詳細・集計の両方を凍結保存する（過去バージョンの詳細内訳も追えるように、Phase 12）
   const estimateDataSnapshot = {
-    directionFee: estimate.directionFee,
-    pages: estimate.pages,
-    lineItems: estimate.lineItems,
-    subtotal: estimate.subtotal,
-    taxRate: estimate.taxRate,
-    taxAmount: estimate.taxAmount,
-    total: estimate.total,
+    detailed: estimate,
+    aggregated,
+    total: aggregated.total,
   };
 
   const { error: insertError } = await supabase.from("estimate_versions").insert({

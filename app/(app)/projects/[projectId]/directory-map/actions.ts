@@ -14,6 +14,11 @@ function nullableId(formData: FormData, key: string): string | null {
   return value || null;
 }
 
+function nullableCmsTier(formData: FormData): string | null {
+  const value = String(formData.get("cmsTier") ?? "").trim();
+  return value === "S" || value === "M" || value === "L" ? value : null;
+}
+
 export async function createPage(formData: FormData) {
   const projectId = String(formData.get("projectId") ?? "");
   const name = String(formData.get("name") ?? "").trim();
@@ -29,7 +34,8 @@ export async function createPage(formData: FormData) {
     parent_id: nullableId(formData, "parentId"),
     wire_needed: formData.get("wireNeeded") === "on",
     copy_needed: formData.get("copyNeeded") === "on",
-    extra_cost: num(formData, "extraCost"),
+    cms_tier: nullableCmsTier(formData),
+    mobile_menu_needed: formData.get("mobileMenuNeeded") === "on",
     group_id: nullableId(formData, "groupId"),
     priority: num(formData, "priority"),
   });
@@ -72,7 +78,8 @@ export async function updatePage(formData: FormData) {
       parent_id: parentId,
       wire_needed: formData.get("wireNeeded") === "on",
       copy_needed: formData.get("copyNeeded") === "on",
-      extra_cost: num(formData, "extraCost"),
+      cms_tier: nullableCmsTier(formData),
+      mobile_menu_needed: formData.get("mobileMenuNeeded") === "on",
       group_id: nullableId(formData, "groupId"),
       priority: num(formData, "priority"),
     })

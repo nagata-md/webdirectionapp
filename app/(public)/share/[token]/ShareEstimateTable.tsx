@@ -29,6 +29,14 @@ export function ShareEstimateTable({ estimate }: { estimate: EstimateResult }) {
               <td className="px-2 py-1.5 text-right">{yen(p.cost)}</td>
             </tr>
           ))}
+          {estimate.cmsCosts.map((c) => (
+            <tr key={`cms-${c.pageId}`} className="border-b border-border">
+              <td className="px-2 py-1.5">
+                ②{c.pageName} CMS構築{c.tier}
+              </td>
+              <td className="px-2 py-1.5 text-right">{yen(c.cost)}</td>
+            </tr>
+          ))}
           {estimate.lineItems.map((l) => (
             <tr key={l.id} className="border-b border-border">
               <td className="px-2 py-1.5">③{l.label}</td>

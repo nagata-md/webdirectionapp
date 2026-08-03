@@ -33,7 +33,7 @@ export default async function MasterPage() {
       </Suspense>
 
       <Panel className="mb-4">
-        <SectionLabel>単価・工数マスタ / 標準待機日数 / 並行作業人数デフォルト</SectionLabel>
+        <SectionLabel>単価・工数マスタ</SectionLabel>
         <form action={saveScheduleMaster}>
           <div className="mb-5 overflow-x-auto">
             <table className="w-full min-w-[820px] border-collapse text-[13px]">
@@ -88,6 +88,110 @@ export default async function MasterPage() {
             </table>
           </div>
 
+          <SectionLabel>TOP専用単価・工数マスタ</SectionLabel>
+          <div className="mb-5 overflow-x-auto">
+            <table className="w-full min-w-[820px] border-collapse text-[13px]">
+              <thead>
+                <tr>
+                  <th className="border-b-2 border-navy bg-surface-subtle px-2 py-2 text-left font-label text-[11px] uppercase tracking-wide text-muted">
+                    複雑度
+                  </th>
+                  {COST_PHASES.map((phase) => (
+                    <th
+                      key={phase}
+                      colSpan={2}
+                      className="border-b-2 border-navy bg-surface-subtle px-2 py-2 text-left font-label text-[11px] uppercase tracking-wide text-muted"
+                    >
+                      {phase}（日数/単価）
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {COMPLEXITIES.map((complexity) => (
+                  <tr key={complexity} className="border-b border-border">
+                    <td className="px-2 py-1.5 font-semibold">{complexity}</td>
+                    {COST_PHASES.map((phase) => {
+                      const entry = master.top_rates?.[complexity]?.[phase];
+                      return (
+                        <td key={phase} colSpan={2} className="px-2 py-1.5">
+                          <div className="flex gap-1">
+                            <input
+                              type="number"
+                              step="0.5"
+                              name={`topRates.${complexity}.${phase}.days`}
+                              defaultValue={entry?.days ?? 0}
+                              className={numberInputClass}
+                              aria-label={`TOP ${complexity} ${phase} 日数`}
+                            />
+                            <input
+                              type="number"
+                              step="1"
+                              name={`topRates.${complexity}.${phase}.cost`}
+                              defaultValue={entry?.cost ?? 0}
+                              className={numberInputClass}
+                              aria-label={`TOP ${complexity} ${phase} 単価`}
+                            />
+                          </div>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <SectionLabel>CMS構築費マスタ</SectionLabel>
+          <div className="mb-5 overflow-x-auto">
+            <table className="w-full min-w-[360px] border-collapse text-[13px]">
+              <thead>
+                <tr>
+                  <th className="border-b-2 border-navy bg-surface-subtle px-2 py-2 text-left font-label text-[11px] uppercase tracking-wide text-muted">
+                    複雑度
+                  </th>
+                  <th className="border-b-2 border-navy bg-surface-subtle px-2 py-2 text-left font-label text-[11px] uppercase tracking-wide text-muted">
+                    日数
+                  </th>
+                  <th className="border-b-2 border-navy bg-surface-subtle px-2 py-2 text-left font-label text-[11px] uppercase tracking-wide text-muted">
+                    単価
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {COMPLEXITIES.map((complexity) => {
+                  const entry = master.cms_rates?.[complexity];
+                  return (
+                    <tr key={complexity} className="border-b border-border">
+                      <td className="px-2 py-1.5 font-semibold">CMS構築{complexity}</td>
+                      <td className="px-2 py-1.5">
+                        <input
+                          type="number"
+                          step="0.5"
+                          name={`cmsRates.${complexity}.days`}
+                          defaultValue={entry?.days ?? 0}
+                          className={numberInputClass}
+                          aria-label={`CMS構築${complexity} 日数`}
+                        />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input
+                          type="number"
+                          step="1"
+                          name={`cmsRates.${complexity}.cost`}
+                          defaultValue={entry?.cost ?? 0}
+                          className={numberInputClass}
+                          aria-label={`CMS構築${complexity} 単価`}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <SectionLabel>標準待機日数・並行作業人数デフォルト</SectionLabel>
           <div className="mb-5 overflow-x-auto">
             <table className="w-full min-w-[560px] border-collapse text-[13px]">
               <thead>
@@ -161,7 +265,7 @@ export default async function MasterPage() {
       </Panel>
 
       <Panel className="mb-4">
-        <SectionLabel>月額ディレクション費・消費税率</SectionLabel>
+        <SectionLabel>月額ディレクション費・消費税率・スマホ対応メニュー単価</SectionLabel>
         <form action={saveDirectionAndTax} className="flex flex-wrap gap-6">
           <FormRow label="月額ディレクション費（円）" htmlFor="directionMonthlyRate">
             <input
@@ -180,6 +284,15 @@ export default async function MasterPage() {
               name="taxRatePercent"
               defaultValue={Math.round(master.tax_rate * 1000) / 10}
               className="w-32 rounded-control border border-border-strong px-2.5 py-1.5 text-[13px]"
+            />
+          </FormRow>
+          <FormRow label="スマホ対応メニュー（メガメニュー）単価（円）" htmlFor="mobileMenuRate">
+            <input
+              id="mobileMenuRate"
+              type="number"
+              name="mobileMenuRate"
+              defaultValue={master.mobile_menu_rate}
+              className="w-40 rounded-control border border-border-strong px-2.5 py-1.5 text-[13px]"
             />
           </FormRow>
           <div className="flex items-end">

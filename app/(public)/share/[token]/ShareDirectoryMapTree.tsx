@@ -1,5 +1,5 @@
 import { Tag } from "@/components/ui/Tag";
-import { pageTypeLabel } from "@/lib/pages/constants";
+import { cmsTierLabel, pageTypeLabel } from "@/lib/pages/constants";
 
 type SharePageNode = {
   id: string;
@@ -9,6 +9,7 @@ type SharePageNode = {
   parent_id: string | null;
   wire_needed: boolean;
   copy_needed: boolean;
+  cms_tier: string | null;
   priority: number;
 };
 
@@ -32,8 +33,9 @@ function ShareDirectoryMapRow({
         <span className="font-semibold">{page.name}</span>
         <Tag>{pageTypeLabel(page.type)}</Tag>
         <Tag>{page.complexity}</Tag>
-        {!page.wire_needed && <Tag>ワイヤー不要</Tag>}
-        {!page.copy_needed && <Tag>コピー不要</Tag>}
+        <Tag>{page.wire_needed ? "ワイヤー" : "ワイヤー不要"}</Tag>
+        <Tag>{page.copy_needed ? "コピー" : "コピー不要"}</Tag>
+        {page.cms_tier && <Tag>{cmsTierLabel(page.cms_tier)}</Tag>}
       </div>
       {children.map((child) => (
         <ShareDirectoryMapRow key={child.id} page={child} depth={depth + 1} allPages={allPages} />

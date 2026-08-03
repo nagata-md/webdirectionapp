@@ -1,8 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { createPage } from "./actions";
 import { Button } from "@/components/ui/Button";
-import { PAGE_TYPES, type PageNode, type ProgressGroup } from "@/lib/pages/constants";
+import { CMS_TIERS, PAGE_TYPES, type PageNode, type ProgressGroup } from "@/lib/pages/constants";
 import { COMPLEXITIES } from "@/lib/master/constants";
 
 const inputClass = "rounded-control border border-border-strong px-2.5 py-1.5 text-[13px]";
@@ -16,6 +17,8 @@ export function PageForm({
   pages: PageNode[];
   groups: ProgressGroup[];
 }) {
+  const [type, setType] = useState("other");
+
   return (
     <form action={createPage} className="flex flex-wrap items-end gap-3">
       <input type="hidden" name="projectId" value={projectId} readOnly />
@@ -29,7 +32,12 @@ export function PageForm({
 
       <div>
         <label className="mb-1 block text-[12px] font-semibold text-muted">種別</label>
-        <select name="type" defaultValue="other" className={inputClass}>
+        <select
+          name="type"
+          value={type}
+          onChange={(e) => setType(e.target.value)}
+          className={inputClass}
+        >
           {PAGE_TYPES.map((t) => (
             <option key={t.value} value={t.value}>
               {t.label}
@@ -79,8 +87,14 @@ export function PageForm({
       </div>
 
       <div>
-        <label className="mb-1 block text-[12px] font-semibold text-muted">個別費用（円）</label>
-        <input type="number" name="extraCost" defaultValue={0} className={`${inputClass} w-28`} />
+        <label className="mb-1 block text-[12px] font-semibold text-muted">CMS構築費</label>
+        <select name="cmsTier" defaultValue="" className={inputClass}>
+          {CMS_TIERS.map((tier) => (
+            <option key={tier} value={tier}>
+              {tier ? `CMS構築${tier}` : "なし"}
+            </option>
+          ))}
+        </select>
       </div>
 
       <label className="flex items-center gap-1.5 pb-2 text-[13px]">
@@ -91,6 +105,12 @@ export function PageForm({
         <input type="checkbox" name="copyNeeded" defaultChecked />
         コピー要
       </label>
+      {type === "top" && (
+        <label className="flex items-center gap-1.5 pb-2 text-[13px]">
+          <input type="checkbox" name="mobileMenuNeeded" />
+          スマホ対応メニュー（メガメニュー）を含める
+        </label>
+      )}
 
       <Button type="submit" variant="primary">
         ＋ ページ追加

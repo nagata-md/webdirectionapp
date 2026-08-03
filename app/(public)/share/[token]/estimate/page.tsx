@@ -27,7 +27,10 @@ export default async function ShareEstimatePage({
       .eq("id", link.estimateVersionId)
       .maybeSingle();
     if (version) {
-      estimate = version.estimate_data as EstimateResult;
+      // estimate_dataは{ detailed, aggregated, total }の形（Phase 12）。共有閲覧はページ別内訳の
+      // detailedを表示する（liveモードのShareEstimateTableと同じ形に揃える）。
+      const snapshot = version.estimate_data as { detailed: EstimateResult };
+      estimate = snapshot.detailed;
       versionLabel = `${version.quote_number}（${String(version.issued_at).slice(0, 10)}発行・有効期限${version.valid_until}）`;
     }
   } else {

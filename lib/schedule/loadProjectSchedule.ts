@@ -40,7 +40,7 @@ export async function loadProjectSchedule(
         .single(),
       supabase
         .from("pages")
-        .select("id, complexity, wire_needed, copy_needed, group_id, priority")
+        .select("id, type, complexity, wire_needed, copy_needed, cms_tier, group_id, priority")
         .eq("project_id", projectId),
       supabase
         .from("progress_groups")
@@ -49,15 +49,17 @@ export async function loadProjectSchedule(
         .order("sort_order"),
       supabase
         .from("master")
-        .select("rates, standards, weekly_off, holidays, default_parallel_by_phase")
+        .select("rates, top_rates, cms_rates, standards, weekly_off, holidays, default_parallel_by_phase")
         .single(),
     ]);
 
   const pages: SchedulePageInput[] = (pagesRaw ?? []).map((p) => ({
     id: p.id,
+    type: p.type,
     complexity: p.complexity,
     wireNeeded: p.wire_needed,
     copyNeeded: p.copy_needed,
+    cmsTier: p.cms_tier,
     groupId: p.group_id,
     priority: p.priority,
   }));
@@ -87,6 +89,8 @@ export async function loadProjectSchedule(
 
   const master: MasterForSchedule = {
     rates: masterRaw?.rates ?? {},
+    topRates: masterRaw?.top_rates ?? {},
+    cmsRates: masterRaw?.cms_rates ?? {},
     standards: masterRaw?.standards ?? {},
     weeklyOff: masterRaw?.weekly_off ?? [0, 6],
     holidays: masterRaw?.holidays ?? [],

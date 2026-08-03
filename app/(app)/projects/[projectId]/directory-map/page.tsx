@@ -17,7 +17,7 @@ export default async function DirectoryMapPage({
     supabase
       .from("pages")
       .select(
-        "id, name, type, complexity, parent_id, wire_needed, copy_needed, extra_cost, group_id, priority",
+        "id, name, type, complexity, parent_id, wire_needed, copy_needed, cms_tier, mobile_menu_needed, group_id, priority",
       )
       .eq("project_id", projectId),
     supabase

@@ -60,14 +60,28 @@ export async function saveScheduleMaster(formData: FormData) {
   const id = await getMasterId(supabase);
 
   const rates: Record<string, Record<string, { days: number; cost: number }>> = {};
+  const topRates: Record<string, Record<string, { days: number; cost: number }>> = {};
   for (const complexity of COMPLEXITIES) {
     rates[complexity] = {};
+    topRates[complexity] = {};
     for (const phase of COST_PHASES) {
       rates[complexity][phase] = {
         days: num(formData, `rates.${complexity}.${phase}.days`),
         cost: num(formData, `rates.${complexity}.${phase}.cost`),
       };
+      topRates[complexity][phase] = {
+        days: num(formData, `topRates.${complexity}.${phase}.days`),
+        cost: num(formData, `topRates.${complexity}.${phase}.cost`),
+      };
     }
+  }
+
+  const cmsRates: Record<string, { days: number; cost: number }> = {};
+  for (const complexity of COMPLEXITIES) {
+    cmsRates[complexity] = {
+      days: num(formData, `cmsRates.${complexity}.days`),
+      cost: num(formData, `cmsRates.${complexity}.cost`),
+    };
   }
 
   const standards: Record<string, { checkback: number; buffer: number }> = {};
@@ -84,6 +98,8 @@ export async function saveScheduleMaster(formData: FormData) {
     .from("master")
     .update({
       rates,
+      top_rates: topRates,
+      cms_rates: cmsRates,
       standards,
       default_parallel_by_phase: defaultParallelByPhase,
     })
@@ -122,12 +138,14 @@ export async function saveDirectionAndTax(formData: FormData) {
 
   const directionMonthlyRate = num(formData, "directionMonthlyRate");
   const taxRatePercent = num(formData, "taxRatePercent");
+  const mobileMenuRate = num(formData, "mobileMenuRate");
 
   const { error } = await supabase
     .from("master")
     .update({
       direction_monthly_rate: directionMonthlyRate,
       tax_rate: taxRatePercent / 100,
+      mobile_menu_rate: mobileMenuRate,
     })
     .eq("id", id);
 

@@ -16,11 +16,14 @@ export const COST_PHASES = [
 ] as const;
 export type CostPhase = (typeof COST_PHASES)[number];
 
-// スケジュール工程（ガントチャート上の期間単位5種、spec §3）
+// スケジュール工程（ガントチャート上の期間単位、Phase 12でCMS構築を追加した6種）。
+// 順序がそのままシーケンス上の並び（構成→デザイン→コーディング→CMS構築→テストアップ→公開）。
+// CMS構築はcms_tierが設定されているページにのみ適用される（lib/schedule/computeSchedule.ts）。
 export const SCHEDULE_PHASES = [
   "構成",
   "デザイン",
   "コーディング",
+  "CMS構築",
   "テストアップ",
   "公開",
 ] as const;
@@ -31,6 +34,12 @@ export const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"] as con
 
 export type RateEntry = { days: number; cost: number };
 export type Rates = Record<Complexity, Record<CostPhase, RateEntry>>;
+
+// TOPページ専用の単価・工数テーブル（Phase 12、通常のratesとは別建て。形状は同じ）
+export type TopRates = Rates;
+
+// CMS構築費（Phase 12）。複雑度ごとに金額・日数のみ（コスト工程の軸はない）
+export type CmsRates = Record<Complexity, RateEntry>;
 
 export type StandardEntry = { checkback: number; buffer: number };
 export type Standards = Record<SchedulePhase, StandardEntry>;

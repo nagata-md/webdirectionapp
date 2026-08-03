@@ -7,6 +7,15 @@ Font.register({
   src: path.resolve(process.cwd(), "assets/fonts/NotoSansJP-Regular.ttf"),
 });
 
+export type EstimatePdfLine = {
+  label: string;
+  quantity: number;
+  unit: string;
+  unitPrice: number;
+  amount: number;
+};
+
+// PDF発行は集計見積もりベースで行う（Phase 12、詳細見積もりは画面表示のみ）。
 export type EstimatePdfData = {
   quoteNumber: string;
   issuedAt: string;
@@ -14,12 +23,18 @@ export type EstimatePdfData = {
   clientName: string;
   projectName: string;
   directionFee: number;
-  pages: { pageName: string; cost: number }[];
+  directionMonths: number;
+  directionMonthlyRate: number;
+  topLines: EstimatePdfLine[];
+  tallyLines: EstimatePdfLine[];
+  cmsLines: EstimatePdfLine[];
+  testVerificationTotal: number;
   lineItems: { label: string; amount: number }[];
   subtotal: number;
   taxRate: number;
   taxAmount: number;
   total: number;
+  remarks: string | null;
   issuer: {
     companyName: string | null;
     address: string | null;
@@ -60,9 +75,16 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   colLabel: { flex: 1, fontSize: 9 },
-  colAmount: { width: 100, fontSize: 9, textAlign: "right" },
+  colQuantity: { width: 60, fontSize: 9, textAlign: "right" },
+  colUnitPrice: { width: 80, fontSize: 9, textAlign: "right" },
+  colAmount: { width: 90, fontSize: 9, textAlign: "right" },
   headerLabel: { flex: 1, fontSize: 9, color: "#6D6E71" },
-  headerAmount: { width: 100, fontSize: 9, textAlign: "right", color: "#6D6E71" },
+  headerQuantity: { width: 60, fontSize: 9, textAlign: "right", color: "#6D6E71" },
+  headerUnitPrice: { width: 80, fontSize: 9, textAlign: "right", color: "#6D6E71" },
+  headerAmount: { width: 90, fontSize: 9, textAlign: "right", color: "#6D6E71" },
+  remarksBox: { marginTop: 8, marginBottom: 12 },
+  remarksLabel: { fontSize: 9, color: "#6D6E71", marginBottom: 2 },
+  remarksText: { fontSize: 9 },
   summary: { marginTop: 8, alignItems: "flex-end" },
   summaryLine: { fontSize: 9, marginBottom: 2 },
   grandTotal: { fontSize: 12, marginTop: 4, color: "#0F2E4F" },
@@ -70,6 +92,19 @@ const styles = StyleSheet.create({
   stamp: { width: 60, height: 60, marginBottom: 4 },
   issuerText: { fontSize: 9, textAlign: "right", color: "#6D6E71" },
 });
+
+function PdfRow({ line }: { line: EstimatePdfLine }) {
+  return (
+    <View style={styles.tableRow}>
+      <Text style={styles.colLabel}>{line.label}</Text>
+      <Text style={styles.colQuantity}>
+        {line.quantity} {line.unit}
+      </Text>
+      <Text style={styles.colUnitPrice}>{yen(line.unitPrice)}</Text>
+      <Text style={styles.colAmount}>{yen(line.amount)}</Text>
+    </View>
+  );
+}
 
 export function EstimatePdfDocument({ data }: { data: EstimatePdfData }) {
   return (
@@ -93,29 +128,59 @@ export function EstimatePdfDocument({ data }: { data: EstimatePdfData }) {
 
         <View style={styles.table}>
           <View style={styles.tableHeaderRow}>
-            <Text style={styles.headerLabel}>項目</Text>
+            <Text style={styles.headerLabel}>品番・品名</Text>
+            <Text style={styles.headerQuantity}>数量</Text>
+            <Text style={styles.headerUnitPrice}>単価</Text>
             <Text style={styles.headerAmount}>金額</Text>
           </View>
 
-          <View style={styles.tableRow}>
-            <Text style={styles.colLabel}>ディレクション費</Text>
-            <Text style={styles.colAmount}>{yen(data.directionFee)}</Text>
-          </View>
+          <PdfRow
+            line={{
+              label: "全体ディレクション【進行・管理】",
+              quantity: data.directionMonths,
+              unit: "ヶ月",
+              unitPrice: data.directionMonthlyRate,
+              amount: data.directionFee,
+            }}
+          />
 
-          {data.pages.map((p, i) => (
-            <View style={styles.tableRow} key={`page-${i}`}>
-              <Text style={styles.colLabel}>{p.pageName}</Text>
-              <Text style={styles.colAmount}>{yen(p.cost)}</Text>
-            </View>
+          {data.topLines.map((line, i) => (
+            <PdfRow key={`top-${i}`} line={line} />
           ))}
+          {data.tallyLines.map((line, i) => (
+            <PdfRow key={`tally-${i}`} line={line} />
+          ))}
+          {data.cmsLines.map((line, i) => (
+            <PdfRow key={`cms-${i}`} line={line} />
+          ))}
+          {data.testVerificationTotal > 0 && (
+            <PdfRow
+              line={{
+                label: "テスト検証",
+                quantity: 1,
+                unit: "式",
+                unitPrice: data.testVerificationTotal,
+                amount: data.testVerificationTotal,
+              }}
+            />
+          )}
 
           {data.lineItems.map((l, i) => (
             <View style={styles.tableRow} key={`line-${i}`}>
               <Text style={styles.colLabel}>{l.label}</Text>
+              <Text style={styles.colQuantity} />
+              <Text style={styles.colUnitPrice} />
               <Text style={styles.colAmount}>{yen(l.amount)}</Text>
             </View>
           ))}
         </View>
+
+        {data.remarks && (
+          <View style={styles.remarksBox}>
+            <Text style={styles.remarksLabel}>備考</Text>
+            <Text style={styles.remarksText}>{data.remarks}</Text>
+          </View>
+        )}
 
         <View style={styles.summary}>
           <Text style={styles.summaryLine}>小計（税抜）：{yen(data.subtotal)}</Text>

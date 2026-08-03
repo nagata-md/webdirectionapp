@@ -124,10 +124,10 @@ describe("computeSchedule", () => {
     const p1Composition = p1.phases.find((ph) => ph.phase === "構成")!;
     const p2Composition = p2.phases.find((ph) => ph.phase === "構成")!;
 
-    // グループ1の構成完了日(01-06)がグループ2の起点になる
+    // グループ1の構成完了日(01-06 火)の翌営業日(01-07 水)がグループ2の起点になる
     expect(p1Composition.end).toBe("2026-01-06");
-    expect(p2Composition.start).toBe("2026-01-06");
-    expect(result.groupStartDates["g2"]).toBe("2026-01-06");
+    expect(p2Composition.start).toBe("2026-01-07");
+    expect(result.groupStartDates["g2"]).toBe("2026-01-07");
   });
 
   it("並行作業レーンが1件のみの場合、2件目のページは1件目のレーン解放を待つ", () => {
@@ -210,8 +210,8 @@ describe("computeSchedule", () => {
     };
 
     const result = computeSchedule(input);
-    // グループ2の起点は自動計算値(01-06)ではなく、オーバーライドされた01-20になる
-    expect(result.groupStartDates["g2"]).toBe("2026-01-20");
+    // グループ2の起点は自動計算値(01-07)ではなく、オーバーライドされた01-20(火)の翌営業日01-21(水)になる
+    expect(result.groupStartDates["g2"]).toBe("2026-01-21");
   });
 
   it("CMS構築はcmsTierが設定されたページのみコーディング後・テストアップ前に挿入される", () => {

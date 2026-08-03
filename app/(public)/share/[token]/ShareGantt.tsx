@@ -1,16 +1,55 @@
 import { SCHEDULE_PHASES, WEEKDAYS } from "@/lib/master/constants";
 import { PHASE_COLOR_CLASS } from "@/lib/schedule/phaseColors";
 import { buildDateGrid } from "@/lib/schedule/dateGrid";
-import type { Holiday } from "@/lib/schedule/businessDay";
+import { compareDates, shiftCalendarDays, type Holiday } from "@/lib/schedule/businessDay";
 import type { PageSchedule } from "@/lib/schedule/types";
 
 type GanttPage = { id: string; name: string };
 
 const DAY_WIDTH = 28;
 const LEFT_WIDTH = 208;
+const DARK_FILTER = "brightness(0.7)";
 
 function toDayIndex(dateStr: string): number {
   return Math.floor(new Date(`${dateStr}T00:00:00Z`).getTime() / 86400000);
+}
+
+// 区間を「最終日以外」「最終日（濃い色）」の2つのdivに分けて描画する（参照専用のためbuttonではなくdiv）
+function BarSegments({
+  start,
+  end,
+  leftPx,
+  colorClass,
+  title,
+}: {
+  start: string;
+  end: string;
+  leftPx: (date: string) => number;
+  colorClass: string;
+  title: string;
+}) {
+  const hasBody = compareDates(start, end) < 0;
+  const bodyEnd = shiftCalendarDays(end, -1);
+
+  return (
+    <>
+      {hasBody && (
+        <div
+          title={title}
+          style={{
+            left: leftPx(start),
+            width: (toDayIndex(bodyEnd) - toDayIndex(start) + 1) * DAY_WIDTH,
+          }}
+          className={`absolute top-0 h-7 rounded-l ${colorClass}`}
+        />
+      )}
+      <div
+        title={title}
+        style={{ left: leftPx(end), width: DAY_WIDTH, filter: DARK_FILTER }}
+        className={`absolute top-0 h-7 ${hasBody ? "rounded-r" : "rounded"} ${colorClass}`}
+      />
+    </>
+  );
 }
 
 // 外部共有向けの参照専用ガントチャート（spec §4.10）。カレンダー型グリッド表示（Phase 12）。
@@ -42,9 +81,6 @@ export function ShareGantt({
 
   function leftPx(dateStr: string): number {
     return (dayIndexByDate.get(dateStr) ?? 0) * DAY_WIDTH;
-  }
-  function widthPx(start: string, end: string): number {
-    return (toDayIndex(end) - toDayIndex(start) + 1) * DAY_WIDTH;
   }
 
   return (
@@ -104,6 +140,17 @@ export function ShareGantt({
                   (d) => !d.isOff && d.date >= projectStartDate && d.date <= publishPhase.end,
                 ).length;
 
+              const waitSegments: { start: string; end: string }[] = [];
+              for (let i = 0; i < ps.phases.length - 1; i += 1) {
+                const cur = ps.phases[i];
+                const next = ps.phases[i + 1];
+                const waitStart = shiftCalendarDays(cur.end, 1);
+                const waitEnd = shiftCalendarDays(next.start, -1);
+                if (compareDates(waitStart, waitEnd) <= 0) {
+                  waitSegments.push({ start: waitStart, end: waitEnd });
+                }
+              }
+
               return (
                 <div key={ps.pageId} className="flex items-start">
                   <div
@@ -130,16 +177,30 @@ export function ShareGantt({
                     {days.map((d) => (
                       <div
                         key={d.date}
-                        className={`absolute top-0 h-7 ${d.isOff ? "bg-subtle/30" : ""}`}
+                        className={`absolute top-0 h-7 border-l border-border/60 ${
+                          d.isOff ? "bg-subtle/30" : ""
+                        }`}
                         style={{ left: leftPx(d.date), width: DAY_WIDTH }}
                       />
                     ))}
+                    {waitSegments.map((seg, i) => (
+                      <BarSegments
+                        key={`wait-${i}`}
+                        start={seg.start}
+                        end={seg.end}
+                        leftPx={leftPx}
+                        colorClass="bg-phase-wait"
+                        title={`チェックバック・バッファ待ち: ${seg.start} 〜 ${seg.end}`}
+                      />
+                    ))}
                     {ps.phases.map((ph) => (
-                      <div
+                      <BarSegments
                         key={ph.phase}
+                        start={ph.start}
+                        end={ph.end}
+                        leftPx={leftPx}
+                        colorClass={PHASE_COLOR_CLASS[ph.phase]}
                         title={`${ph.phase}: ${ph.start} 〜 ${ph.end}`}
-                        style={{ left: leftPx(ph.start), width: widthPx(ph.start, ph.end) }}
-                        className={`absolute top-0 h-7 rounded ${PHASE_COLOR_CLASS[ph.phase]}`}
                       />
                     ))}
                   </div>
@@ -157,6 +218,10 @@ export function ShareGantt({
             {phase}
           </span>
         ))}
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-3 w-3 rounded bg-phase-wait" />
+          チェックバック・バッファ待ち
+        </span>
         <span className="flex items-center gap-1.5">
           <span className="inline-block h-3 w-3 rounded bg-subtle" />
           週末・休日

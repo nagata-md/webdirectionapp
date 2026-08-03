@@ -104,7 +104,12 @@ export function computeSchedule(input: ComputeScheduleInput): ComputeScheduleRes
       pageSchedules.set(page.id, { pageId: page.id, phases });
     }
 
-    nextGroupStart = maxDate(compositionEnds) ?? nextGroupStart;
+    // 次グループの起点は、このグループの構成完了日そのものではなく、その翌営業日とする
+    // （2026-08-03改訂：提出日と同日ではなく提出翌営業日から次工程に入る）。
+    const groupCompositionEnd = maxDate(compositionEnds);
+    nextGroupStart = groupCompositionEnd
+      ? shiftBusinessDays(groupCompositionEnd, 1, weeklyOff, holidays)
+      : nextGroupStart;
   }
 
   const allPublishEnds = pages

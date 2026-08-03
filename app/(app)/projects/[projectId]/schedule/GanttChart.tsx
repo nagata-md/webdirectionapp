@@ -4,7 +4,7 @@ import { useState } from "react";
 import { SCHEDULE_PHASES, WEEKDAYS } from "@/lib/master/constants";
 import { PHASE_COLOR_CLASS } from "@/lib/schedule/phaseColors";
 import { buildDateGrid } from "@/lib/schedule/dateGrid";
-import type { Holiday } from "@/lib/schedule/businessDay";
+import { compareDates, shiftCalendarDays, type Holiday } from "@/lib/schedule/businessDay";
 import type { PageSchedule } from "@/lib/schedule/types";
 import { resetPageOverrides } from "./actions";
 import { Button } from "@/components/ui/Button";
@@ -14,9 +14,60 @@ type GanttPage = { id: string; name: string };
 
 const DAY_WIDTH = 28;
 const LEFT_WIDTH = 208;
+const DARK_FILTER = "brightness(0.7)";
 
 function toDayIndex(dateStr: string): number {
   return Math.floor(new Date(`${dateStr}T00:00:00Z`).getTime() / 86400000);
+}
+
+// 工程バー・待機バーを「最終日以外」「最終日（濃い色）」の2区間に分けて描画する
+function BarSegments({
+  start,
+  end,
+  leftPx,
+  colorClass,
+  ringClass,
+  title,
+  onClick,
+}: {
+  start: string;
+  end: string;
+  leftPx: (date: string) => number;
+  colorClass: string;
+  ringClass?: string;
+  title: string;
+  onClick?: () => void;
+}) {
+  const hasBody = compareDates(start, end) < 0;
+  const bodyEnd = shiftCalendarDays(end, -1);
+
+  return (
+    <>
+      {hasBody && (
+        <button
+          type="button"
+          onClick={onClick}
+          title={title}
+          style={{
+            left: leftPx(start),
+            width: (toDayIndex(bodyEnd) - toDayIndex(start) + 1) * DAY_WIDTH,
+          }}
+          className={`absolute top-0 h-7 rounded-l ${colorClass} ${ringClass ?? ""}`}
+        />
+      )}
+      <button
+        type="button"
+        onClick={onClick}
+        title={title}
+        style={{
+          left: leftPx(end),
+          width: DAY_WIDTH,
+          filter: DARK_FILTER,
+        }}
+        className={`absolute top-0 h-7 ${hasBody ? "rounded-r" : "rounded"} ${colorClass} ${ringClass ?? ""}`}
+      />
+    </>
+  );
 }
 
 export function GanttChart({
@@ -56,9 +107,13 @@ export function GanttChart({
   function leftPx(dateStr: string): number {
     return (dayIndexByDate.get(dateStr) ?? 0) * DAY_WIDTH;
   }
-  function widthPx(start: string, end: string): number {
-    return (toDayIndex(end) - toDayIndex(start) + 1) * DAY_WIDTH;
-  }
+
+  const editingPageName = editing ? pageById.get(editing.pageId)?.name : null;
+  const editingPhaseSchedule = editing
+    ? pageSchedules
+        .find((ps) => ps.pageId === editing.pageId)
+        ?.phases.find((ph) => ph.phase === editing.phase)
+    : undefined;
 
   return (
     <div>
@@ -66,10 +121,7 @@ export function GanttChart({
         <div style={{ width: LEFT_WIDTH + totalWidth }}>
           {/* 月ヘッダー */}
           <div className="flex">
-            <div
-              className="sticky left-0 z-10 shrink-0 bg-white"
-              style={{ width: LEFT_WIDTH }}
-            />
+            <div className="sticky left-0 z-10 shrink-0 bg-white" style={{ width: LEFT_WIDTH }} />
             {months.map((m, i) => (
               <div
                 key={i}
@@ -82,10 +134,7 @@ export function GanttChart({
           </div>
           {/* 日付ヘッダー */}
           <div className="flex">
-            <div
-              className="sticky left-0 z-10 shrink-0 bg-white"
-              style={{ width: LEFT_WIDTH }}
-            />
+            <div className="sticky left-0 z-10 shrink-0 bg-white" style={{ width: LEFT_WIDTH }} />
             {days.map((d) => (
               <div
                 key={d.date}
@@ -100,10 +149,7 @@ export function GanttChart({
           </div>
           {/* 曜日ヘッダー */}
           <div className="mb-2 flex">
-            <div
-              className="sticky left-0 z-10 shrink-0 bg-white"
-              style={{ width: LEFT_WIDTH }}
-            />
+            <div className="sticky left-0 z-10 shrink-0 bg-white" style={{ width: LEFT_WIDTH }} />
             {days.map((d) => (
               <div
                 key={d.date}
@@ -130,86 +176,104 @@ export function GanttChart({
                   (d) => !d.isOff && d.date >= projectStartDate && d.date <= publishPhase.end,
                 ).length;
 
+              // 工程間の待機期間（チェックバック・バッファ）をカレンダー日ベースで算出する
+              const waitSegments: { start: string; end: string }[] = [];
+              for (let i = 0; i < ps.phases.length - 1; i += 1) {
+                const cur = ps.phases[i];
+                const next = ps.phases[i + 1];
+                const waitStart = shiftCalendarDays(cur.end, 1);
+                const waitEnd = shiftCalendarDays(next.start, -1);
+                if (compareDates(waitStart, waitEnd) <= 0) {
+                  waitSegments.push({ start: waitStart, end: waitEnd });
+                }
+              }
+
               return (
-                <div key={ps.pageId}>
-                  <div className="flex items-start">
-                    <div
-                      className="sticky left-0 z-10 shrink-0 bg-white pr-3"
-                      style={{ width: LEFT_WIDTH }}
-                    >
-                      <div className="truncate text-[13px] font-semibold">{page.name}</div>
-                      <div className="mt-1 flex gap-4">
-                        <div>
-                          <div className="text-[10px] text-subtle">公開予定日</div>
-                          <div className="text-[15px] font-bold text-navy">
-                            {publishPhase?.end ?? "-"}
-                          </div>
+                <div key={ps.pageId} className="flex items-start">
+                  <div
+                    className="sticky left-0 z-10 shrink-0 bg-white pr-3"
+                    style={{ width: LEFT_WIDTH }}
+                  >
+                    <div className="truncate text-[13px] font-semibold">{page.name}</div>
+                    <div className="mt-1 flex gap-4">
+                      <div>
+                        <div className="text-[10px] text-subtle">公開予定日</div>
+                        <div className="text-[15px] font-bold text-navy">
+                          {publishPhase?.end ?? "-"}
                         </div>
-                        <div>
-                          <div className="text-[10px] text-subtle">作業日数</div>
-                          <div className="text-[15px] font-bold text-navy">
-                            {workDays != null ? `${workDays}日` : "-"}
-                          </div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] text-subtle">作業日数</div>
+                        <div className="text-[15px] font-bold text-navy">
+                          {workDays != null ? `${workDays}日` : "-"}
                         </div>
                       </div>
                     </div>
-                    <div className="relative h-7" style={{ width: totalWidth }}>
-                      {days.map((d) => (
-                        <div
-                          key={d.date}
-                          className={`absolute top-0 h-7 ${d.isOff ? "bg-subtle/30" : ""}`}
-                          style={{ left: leftPx(d.date), width: DAY_WIDTH }}
-                        />
-                      ))}
-                      {ps.phases.map((ph) => (
-                        <button
-                          key={ph.phase}
-                          type="button"
-                          onClick={() =>
-                            setEditing((prev) =>
-                              prev?.pageId === ps.pageId && prev.phase === ph.phase
-                                ? null
-                                : { pageId: ps.pageId, phase: ph.phase },
-                            )
-                          }
-                          title={`${ph.phase}: ${ph.start} 〜 ${ph.end}${ph.isOverridden ? "（手動オーバーライド）" : ""}`}
-                          style={{
-                            left: leftPx(ph.start),
-                            width: widthPx(ph.start, ph.end),
-                          }}
-                          className={`absolute top-0 h-7 rounded ${PHASE_COLOR_CLASS[ph.phase]} ${
-                            ph.isOverridden ? "ring-2 ring-accent ring-offset-1" : ""
-                          }`}
-                        />
-                      ))}
-                    </div>
+                    <form action={resetPageOverrides} className="mt-1">
+                      <input type="hidden" name="projectId" value={projectId} readOnly />
+                      <input type="hidden" name="pageId" value={ps.pageId} readOnly />
+                      <Button type="submit" className="text-[11px]">
+                        全リセット
+                      </Button>
+                    </form>
                   </div>
-
-                  <form action={resetPageOverrides} className="ml-0 mt-1" style={{ paddingLeft: LEFT_WIDTH }}>
-                    <input type="hidden" name="projectId" value={projectId} readOnly />
-                    <input type="hidden" name="pageId" value={ps.pageId} readOnly />
-                    <Button type="submit" className="text-[12px]">
-                      全リセット
-                    </Button>
-                  </form>
-
-                  {editing?.pageId === ps.pageId && (
-                    <div className="mt-2">
-                      <PhaseEditForm
-                        projectId={projectId}
-                        pageId={ps.pageId}
-                        pageName={page.name}
-                        phaseSchedule={ps.phases.find((ph) => ph.phase === editing.phase)!}
-                        onClose={() => setEditing(null)}
+                  <div className="relative h-7" style={{ width: totalWidth }}>
+                    {days.map((d) => (
+                      <div
+                        key={d.date}
+                        className={`absolute top-0 h-7 border-l border-border/60 ${
+                          d.isOff ? "bg-subtle/30" : ""
+                        }`}
+                        style={{ left: leftPx(d.date), width: DAY_WIDTH }}
                       />
-                    </div>
-                  )}
+                    ))}
+                    {waitSegments.map((seg, i) => (
+                      <BarSegments
+                        key={`wait-${i}`}
+                        start={seg.start}
+                        end={seg.end}
+                        leftPx={leftPx}
+                        colorClass="bg-phase-wait"
+                        title={`チェックバック・バッファ待ち: ${seg.start} 〜 ${seg.end}`}
+                      />
+                    ))}
+                    {ps.phases.map((ph) => (
+                      <BarSegments
+                        key={ph.phase}
+                        start={ph.start}
+                        end={ph.end}
+                        leftPx={leftPx}
+                        colorClass={PHASE_COLOR_CLASS[ph.phase]}
+                        ringClass={ph.isOverridden ? "ring-2 ring-accent ring-offset-1" : ""}
+                        title={`${ph.phase}: ${ph.start} 〜 ${ph.end}${ph.isOverridden ? "（手動オーバーライド）" : ""}`}
+                        onClick={() =>
+                          setEditing((prev) =>
+                            prev?.pageId === ps.pageId && prev.phase === ph.phase
+                              ? null
+                              : { pageId: ps.pageId, phase: ph.phase },
+                          )
+                        }
+                      />
+                    ))}
+                  </div>
                 </div>
               );
             })}
           </div>
         </div>
       </div>
+
+      {editing && editingPageName && editingPhaseSchedule && (
+        <div className="mt-3">
+          <PhaseEditForm
+            projectId={projectId}
+            pageId={editing.pageId}
+            pageName={editingPageName}
+            phaseSchedule={editingPhaseSchedule}
+            onClose={() => setEditing(null)}
+          />
+        </div>
+      )}
 
       <div className="mt-4 flex flex-wrap gap-4 text-[12px]">
         {SCHEDULE_PHASES.map((phase) => (
@@ -218,6 +282,14 @@ export function GanttChart({
             {phase}
           </span>
         ))}
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-3 w-3 rounded bg-phase-wait" />
+          チェックバック・バッファ待ち
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-3 w-3 rounded bg-navy" style={{ filter: DARK_FILTER }} />
+          各区間の最終日
+        </span>
         <span className="flex items-center gap-1.5">
           <span className="inline-block h-3 w-3 rounded ring-2 ring-accent" />
           手動オーバーライド

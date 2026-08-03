@@ -272,25 +272,39 @@ export function GanttChart({
                           isOffByDate={isOffByDate}
                         />
                       ))}
-                      {ps.phases.map((ph) => (
-                        <BarSegments
-                          key={ph.phase}
-                          start={ph.start}
-                          end={ph.end}
-                          leftPx={leftPx}
-                          colorClass={PHASE_COLOR_CLASS[ph.phase]}
-                          ringClass={ph.isOverridden ? "ring-2 ring-accent ring-offset-1" : ""}
-                          title={`${schedulePhaseLabel(ph.phase)}: ${ph.start} 〜 ${ph.end}${ph.isOverridden ? "（手動オーバーライド）" : ""}`}
-                          onClick={() =>
-                            setEditing((prev) =>
-                              prev?.pageId === ps.pageId && prev.phase === ph.phase
-                                ? null
-                                : { pageId: ps.pageId, phase: ph.phase },
-                            )
-                          }
-                          isOffByDate={isOffByDate}
-                        />
-                      ))}
+                      {ps.phases.map((ph) => {
+                        const isCheckback = ph.kind === "checkback1" || ph.kind === "checkback2";
+                        const colorClass = isCheckback ? "bg-phase-wait" : PHASE_COLOR_CLASS[ph.basePhase];
+                        const label =
+                          ph.kind === "production"
+                            ? schedulePhaseLabel(ph.basePhase)
+                            : ph.kind === "revision"
+                              ? `${schedulePhaseLabel(ph.basePhase)}（2校作業）`
+                              : `${schedulePhaseLabel(ph.basePhase)}（${ph.kind === "checkback1" ? "チェックバック1" : "チェックバック2"}）`;
+                        const editable = ph.kind !== "revision";
+                        return (
+                          <BarSegments
+                            key={ph.phase}
+                            start={ph.start}
+                            end={ph.end}
+                            leftPx={leftPx}
+                            colorClass={colorClass}
+                            ringClass={ph.isOverridden ? "ring-2 ring-accent ring-offset-1" : ""}
+                            title={`${label}: ${ph.start} 〜 ${ph.end}${ph.isOverridden ? "（手動オーバーライド）" : ""}`}
+                            onClick={
+                              editable
+                                ? () =>
+                                    setEditing((prev) =>
+                                      prev?.pageId === ps.pageId && prev.phase === ph.phase
+                                        ? null
+                                        : { pageId: ps.pageId, phase: ph.phase },
+                                    )
+                                : undefined
+                            }
+                            isOffByDate={isOffByDate}
+                          />
+                        );
+                      })}
                       {launchDate && (
                         <div
                           title={`公開（全ページ共通）: ${launchDate}`}

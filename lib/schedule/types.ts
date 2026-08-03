@@ -29,15 +29,23 @@ export type ProgressGroupInput = {
   sortOrder: number;
 };
 
+// phaseKeyは"構成"等の実工程キーに加え、2校期間のチェックバック1/2の仮想セグメントキー
+// （例:"構成チェックバック1"）も取りうるため、SchedulePhaseより広いstring型にする（Phase 12追加要望）。
 export type OverrideInput = {
   pageId: string;
-  phaseKey: SchedulePhase;
+  phaseKey: string;
   overrideStart: DateString;
   overrideEnd: DateString;
 };
 
+// セグメント種別。production=初稿制作、checkback1/2=チェックバック（手動編集可）、
+// revision=2校作業（自動計算のみ、手動編集は現時点で未対応）。
+export type PhaseSegmentKind = "production" | "checkback1" | "revision" | "checkback2";
+
 export type PhaseSchedule = {
-  phase: SchedulePhase;
+  phase: string;
+  kind: PhaseSegmentKind;
+  basePhase: SchedulePhase;
   start: DateString;
   end: DateString;
   isOverridden: boolean;

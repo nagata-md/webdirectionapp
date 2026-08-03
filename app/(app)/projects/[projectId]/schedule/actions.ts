@@ -7,6 +7,10 @@ import { buildGroupBuckets } from "@/lib/schedule/groupSequencer";
 import { diffCalendarDays, shiftCalendarDays } from "@/lib/schedule/businessDay";
 import { SCHEDULE_PHASES, type SchedulePhase } from "@/lib/master/constants";
 
+function isRealSchedulePhase(value: string): value is SchedulePhase {
+  return (SCHEDULE_PHASES as readonly string[]).includes(value);
+}
+
 async function currentUser(supabase: Awaited<ReturnType<typeof createClient>>) {
   const {
     data: { user },
@@ -17,10 +21,13 @@ async function currentUser(supabase: Awaited<ReturnType<typeof createClient>>) {
 export async function overridePhase(formData: FormData) {
   const projectId = String(formData.get("projectId") ?? "");
   const pageId = String(formData.get("pageId") ?? "");
-  const phaseKey = String(formData.get("phaseKey") ?? "") as SchedulePhase;
+  // phaseKeyは実工程キー("構成"等)に加え、2校期間のチェックバック1/2の仮想セグメントキー
+  // （例:"構成チェックバック1"）も取りうる（Phase 12追加要望）。
+  const phaseKey = String(formData.get("phaseKey") ?? "");
   const overrideStart = String(formData.get("overrideStart") ?? "");
   const overrideEnd = String(formData.get("overrideEnd") ?? "");
   const cascadeFollowing = formData.get("cascadeFollowing") === "on";
+  const applyToGroup = formData.get("applyToGroup") === "on";
   const groupCascadeChoice = String(formData.get("groupCascadeChoice") ?? "recalculate");
 
   if (!projectId || !pageId || !phaseKey || !overrideStart || !overrideEnd) {
@@ -111,7 +118,9 @@ export async function overridePhase(formData: FormData) {
   // 後続工程への追従（spec §4.6）：この工程の終了日が変わった分だけ、
   // 同一ページの「既にオーバーライドされている」後続工程を平行移動する。
   // オーバーライドされていない後続工程は、fresh計算のため自動的に追従する（何もしなくてよい）。
-  if (cascadeFollowing && beforePhase) {
+  // ※2校期間のチェックバック1/2等の仮想セグメントキーはSCHEDULE_PHASESに含まれないため対象外
+  // （後続への追従は実工程の編集時のみ有効。仮想セグメントの後続は常にfresh計算で追従する）。
+  if (cascadeFollowing && beforePhase && isRealSchedulePhase(phaseKey)) {
     const deltaDays = diffCalendarDays(overrideEnd, beforePhase.end);
     if (deltaDays !== 0) {
       const phaseIndex = SCHEDULE_PHASES.indexOf(phaseKey);
@@ -135,6 +144,60 @@ export async function overridePhase(formData: FormData) {
           .eq("page_id", pageId)
           .eq("phase_key", laterPhase);
         if (error) throw new Error(error.message);
+      }
+    }
+  }
+
+  // 同じグループの他ページにも同様の修正を反映する（2026-08-03新規要望）。
+  // このページのこのセグメントの変更前後の日数差分（デルタ）を、同じ進行グループに属する
+  // 他の全ページの「同じセグメント」（同一phaseKey）に、その日付ぶんだけ平行移動して適用する。
+  if (applyToGroup && beforePhase) {
+    const deltaDays = diffCalendarDays(overrideEnd, beforePhase.end);
+    if (deltaDays !== 0) {
+      const buckets = buildGroupBuckets(before.groups, before.pages);
+      const targetBucket = buckets.find((b) => b.pageIds.includes(pageId));
+      const otherPageIds = (targetBucket?.pageIds ?? []).filter((id) => id !== pageId);
+
+      for (const otherPageId of otherPageIds) {
+        const otherPageSchedule = before.schedule.pages.find((p) => p.pageId === otherPageId);
+        const otherPhase = otherPageSchedule?.phases.find((ph) => ph.phase === phaseKey);
+        // このセグメントが存在しないページはスキップ（例：CMS構築セグメントを持たないページ等）
+        if (!otherPhase) continue;
+
+        const newStart = shiftCalendarDays(otherPhase.start, deltaDays);
+        const newEnd = shiftCalendarDays(otherPhase.end, deltaDays);
+
+        const { data: existingOther } = await supabase
+          .from("schedule_overrides")
+          .select("id")
+          .eq("page_id", otherPageId)
+          .eq("phase_key", phaseKey)
+          .maybeSingle();
+
+        if (existingOther) {
+          const { error } = await supabase
+            .from("schedule_overrides")
+            .update({
+              override_start: newStart,
+              override_end: newEnd,
+              edited_by: user?.id ?? null,
+              edited_by_email: user?.email ?? null,
+              edited_at: new Date().toISOString(),
+            })
+            .eq("id", existingOther.id);
+          if (error) throw new Error(error.message);
+        } else {
+          const { error } = await supabase.from("schedule_overrides").insert({
+            page_id: otherPageId,
+            phase_key: phaseKey,
+            override_start: newStart,
+            override_end: newEnd,
+            cascade_following: false,
+            edited_by: user?.id ?? null,
+            edited_by_email: user?.email ?? null,
+          });
+          if (error) throw new Error(error.message);
+        }
       }
     }
   }

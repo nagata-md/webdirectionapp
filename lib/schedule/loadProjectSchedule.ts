@@ -9,7 +9,6 @@ import type {
   ProgressGroupInput,
   SchedulePageInput,
 } from "./types";
-import type { SchedulePhase } from "@/lib/master/constants";
 
 export type ProjectScheduleData = {
   projectStartDate: string | null;
@@ -82,7 +81,7 @@ export async function loadProjectSchedule(
 
   const overrides: OverrideInput[] = (overridesRaw ?? []).map((o) => ({
     pageId: o.page_id,
-    phaseKey: o.phase_key as SchedulePhase,
+    phaseKey: o.phase_key,
     overrideStart: o.override_start,
     overrideEnd: o.override_end,
   }));

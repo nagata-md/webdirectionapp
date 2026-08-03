@@ -2,6 +2,7 @@
 
 import { overridePhase, resetPhaseOverride } from "./actions";
 import { Button } from "@/components/ui/Button";
+import { schedulePhaseLabel } from "@/lib/master/constants";
 import type { PhaseSchedule } from "@/lib/schedule/types";
 
 export function PhaseEditForm({
@@ -17,10 +18,17 @@ export function PhaseEditForm({
   phaseSchedule: PhaseSchedule;
   onClose: () => void;
 }) {
+  const label =
+    phaseSchedule.kind === "production"
+      ? schedulePhaseLabel(phaseSchedule.basePhase)
+      : phaseSchedule.kind === "revision"
+        ? `${schedulePhaseLabel(phaseSchedule.basePhase)}（2校作業）`
+        : `${schedulePhaseLabel(phaseSchedule.basePhase)}（${phaseSchedule.kind === "checkback1" ? "チェックバック1" : "チェックバック2"}）`;
+
   return (
     <div className="mb-2 rounded-panel border border-border-strong bg-surface-subtle p-3">
       <div className="mb-2 text-[13px] font-semibold">
-        {pageName} — {phaseSchedule.phase}
+        {pageName} — {label}
         {phaseSchedule.isOverridden && (
           <span className="ml-2 rounded bg-accent-tint px-1.5 py-0.5 text-[11px] text-accent">
             手動オーバーライド中
@@ -54,9 +62,16 @@ export function PhaseEditForm({
           />
         </div>
 
+        {phaseSchedule.kind === "production" && (
+          <label className="flex items-center gap-1.5 pb-2 text-[13px]">
+            <input type="checkbox" name="cascadeFollowing" />
+            後続工程も追従させる（このページの既にオーバーライド済みの後続区間のみ）
+          </label>
+        )}
+
         <label className="flex items-center gap-1.5 pb-2 text-[13px]">
-          <input type="checkbox" name="cascadeFollowing" />
-          後続工程も追従させる（このページの既にオーバーライド済みの後続区間のみ）
+          <input type="checkbox" name="applyToGroup" />
+          同じグループの他ページにも同様の修正（日数のずれ）を反映する
         </label>
 
         {phaseSchedule.phase === "構成" && (

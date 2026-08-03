@@ -396,4 +396,155 @@ describe("computeSchedule", () => {
     const testupStartIdx = Math.floor(new Date(`${testup.start}T00:00:00Z`).getTime() / 86400000);
     expect(testupStartIdx - cmsEndIdx).toBeLessThanOrEqual(3); // 週末を挟んでも最大3暦日以内
   });
+
+  it("2校期間はチェックバック1・2校作業・チェックバック2の3つの独立したセグメントとして積まれる", () => {
+    const input: ComputeScheduleInput = {
+      projectStartDate: "2026-01-05",
+      pages: [
+        {
+          id: "p1",
+          type: "lower",
+          complexity: "M",
+          wireNeeded: true,
+          copyNeeded: true,
+          cmsTier: null,
+          groupId: null,
+          priority: 1,
+        },
+      ],
+      groups: [],
+      parallelByPhase: ALL_LANES_1,
+      master: baseMaster({
+        standards: {
+          構成: { checkback: 2, buffer: 1, secondDraftDays: 3, secondCheckbackDays: 3 },
+          デザイン: { checkback: 0, buffer: 0 },
+          コーディング: { checkback: 0, buffer: 0 },
+          "CMS構築": { checkback: 0, buffer: 0 },
+          テストアップ: { checkback: 0, buffer: 0 },
+          公開: { checkback: 0, buffer: 0 },
+        },
+      }),
+      overrides: [],
+    };
+
+    const result = computeSchedule(input);
+    const p1 = result.pages.find((p) => p.pageId === "p1")!;
+
+    const cb1 = p1.phases.find((ph) => ph.phase === "構成チェックバック1")!;
+    const revision = p1.phases.find((ph) => ph.phase === "構成2校作業")!;
+    const cb2 = p1.phases.find((ph) => ph.phase === "構成チェックバック2")!;
+
+    expect(cb1.kind).toBe("checkback1");
+    expect(cb1.basePhase).toBe("構成");
+    expect(revision.kind).toBe("revision");
+    expect(revision.basePhase).toBe("構成");
+    expect(cb2.kind).toBe("checkback2");
+    expect(cb2.basePhase).toBe("構成");
+
+    // 順序どおりに並んでいる: 構成完了 < CB1 < 2校作業 < CB2 < デザイン開始
+    const composition = p1.phases.find((ph) => ph.phase === "構成")!;
+    const design = p1.phases.find((ph) => ph.phase === "デザイン")!;
+    expect(composition.end < cb1.start).toBe(true);
+    expect(cb1.end < revision.start).toBe(true);
+    expect(revision.end < cb2.start).toBe(true);
+    expect(cb2.end < design.start).toBe(true);
+  });
+
+  it("チェックバック1を手動オーバーライドすると、2校作業・チェックバック2・次工程が自動的に追従する", () => {
+    const input: ComputeScheduleInput = {
+      projectStartDate: "2026-01-05",
+      pages: [
+        {
+          id: "p1",
+          type: "lower",
+          complexity: "M",
+          wireNeeded: true,
+          copyNeeded: true,
+          cmsTier: null,
+          groupId: null,
+          priority: 1,
+        },
+      ],
+      groups: [],
+      parallelByPhase: ALL_LANES_1,
+      master: baseMaster({
+        standards: {
+          構成: { checkback: 2, buffer: 1, secondDraftDays: 3, secondCheckbackDays: 3 },
+          デザイン: { checkback: 0, buffer: 0 },
+          コーディング: { checkback: 0, buffer: 0 },
+          "CMS構築": { checkback: 0, buffer: 0 },
+          テストアップ: { checkback: 0, buffer: 0 },
+          公開: { checkback: 0, buffer: 0 },
+        },
+      }),
+      overrides: [
+        // チェックバック1を大幅に後ろ倒し
+        {
+          pageId: "p1",
+          phaseKey: "構成チェックバック1",
+          overrideStart: "2026-01-07",
+          overrideEnd: "2026-01-30",
+        },
+      ],
+    };
+
+    const result = computeSchedule(input);
+    const p1 = result.pages.find((p) => p.pageId === "p1")!;
+    const cb1 = p1.phases.find((ph) => ph.phase === "構成チェックバック1")!;
+    const revision = p1.phases.find((ph) => ph.phase === "構成2校作業")!;
+    const cb2 = p1.phases.find((ph) => ph.phase === "構成チェックバック2")!;
+    const design = p1.phases.find((ph) => ph.phase === "デザイン")!;
+
+    expect(cb1.end).toBe("2026-01-30");
+    expect(cb1.isOverridden).toBe(true);
+    // オーバーライドされたCB1の終了日を起点に、後続のセグメントはfresh計算で自動的に追従する
+    expect(revision.start > cb1.end).toBe(true);
+    expect(cb2.start > revision.end).toBe(true);
+    expect(design.start > cb2.end).toBe(true);
+  });
+
+  it("2校作業(revision)セグメントはオーバーライド対象外で、指定しても無視される", () => {
+    const input: ComputeScheduleInput = {
+      projectStartDate: "2026-01-05",
+      pages: [
+        {
+          id: "p1",
+          type: "lower",
+          complexity: "M",
+          wireNeeded: true,
+          copyNeeded: true,
+          cmsTier: null,
+          groupId: null,
+          priority: 1,
+        },
+      ],
+      groups: [],
+      parallelByPhase: ALL_LANES_1,
+      master: baseMaster({
+        standards: {
+          構成: { checkback: 2, buffer: 1, secondDraftDays: 3, secondCheckbackDays: 3 },
+          デザイン: { checkback: 0, buffer: 0 },
+          コーディング: { checkback: 0, buffer: 0 },
+          "CMS構築": { checkback: 0, buffer: 0 },
+          テストアップ: { checkback: 0, buffer: 0 },
+          公開: { checkback: 0, buffer: 0 },
+        },
+      }),
+      overrides: [
+        {
+          pageId: "p1",
+          phaseKey: "構成2校作業",
+          overrideStart: "2099-01-01",
+          overrideEnd: "2099-01-01",
+        },
+      ],
+    };
+
+    const result = computeSchedule(input);
+    const p1 = result.pages.find((p) => p.pageId === "p1")!;
+    const revision = p1.phases.find((ph) => ph.phase === "構成2校作業")!;
+
+    expect(revision.isOverridden).toBe(false);
+    expect(revision.start).not.toBe("2099-01-01");
+  });
 });

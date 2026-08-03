@@ -141,12 +141,15 @@ Webサイト制作案件（ディレクトリマップ設計・ワイヤー／�
 
 ### 4.7 見積もり
 
+**表示順（確定）**：画面・CSV・PDFとも、上から「①ディレクション費 → ②ページ別コスト（制作関連） → ③追加項目（素材費〜値引き、手入力）」の順で表示する。合計計算自体は加算なので順序に依存しないが、体裁上はこの並びを正とする。
+
 | 項目 | 内容 |
 |---|---|
-| ページ別コスト | 複雑度別単価 ×（ワイヤー/コピー要否）＋個別費用 |
-| ディレクション費 | 月額ディレクション費 ×（スケジュール期間の暦月数） |
-| 合計 | 制作費小計＋ディレクション費＝税抜合計、税込合計（消費税率はマスタ設定で変更可能） |
-| 出力 | 画面表示に加え、CSV等の形式でエクスポート可能 |
+| ①ディレクション費 | 月額ディレクション費 ×（スケジュール期間の暦月数） |
+| ②ページ別コスト | 複雑度別単価 ×（ワイヤー/コピー要否）＋個別費用 |
+| ③追加項目（新規要件） | プロジェクトごとに「項目名・金額」の手入力行を任意の件数追加できる。素材費等の追加費用はプラス、値引きはマイナスの金額で入力する（正負自由入力、種別の選択欄は設けない） |
+| 合計 | ディレクション費＋制作費小計＋追加項目の合計＝税抜合計、税込合計（消費税率はマスタ設定で変更可能） |
+| 出力 | 画面表示に加え、CSV等の形式でエクスポート可能（①→②→③の順、追加項目も内訳に含める） |
 | バージョン管理・PDF発行 | 「確定してPDF発行」操作で押下時点の計算結果を凍結・発行する。詳細は§4.11 |
 
 ### 4.8 メタ情報・進行管理
@@ -199,8 +202,8 @@ Webサイト制作案件（ディレクトリマップ設計・ワイヤー／�
 
 | 項目 | 内容 |
 |---|---|
-| 発行操作 | 見積もり画面（§4.7）に「確定してPDF発行」ボタンを設置。押下時点の計算結果（ページ別コスト・ディレクション費・小計・消費税・合計）を`estimate_versions`（§6）として凍結保存し、同時にPDFを生成する |
-| 見積書の体裁 | 見積番号（自動採番）・発行日・有効期限（マスタ設定の`estimate_validity_days`から算出。既定30日）・御中（クライアント名）・件名（プロジェクト名）・ページ別内訳・小計／消費税／合計・自社情報（会社名・住所・電話番号・角印画像）を含む正式な体裁とする |
+| 発行操作 | 見積もり画面（§4.7）に「確定してPDF発行」ボタンを設置。押下時点の計算結果（ディレクション費・ページ別コスト・**追加項目（素材費・値引き等）**・小計・消費税・合計）を`estimate_versions`（§6）として凍結保存し、同時にPDFを生成する |
+| 見積書の体裁 | 見積番号（自動採番）・発行日・有効期限（マスタ設定の`estimate_validity_days`から算出。既定30日）・御中（クライアント名）・件名（プロジェクト名）・**①ディレクション費 → ②ページ別内訳 → ③追加項目の内訳（項目名・金額）の順**・小計／消費税／合計・自社情報（会社名・住所・電話番号・角印画像）を含む正式な体裁とする（表示順は§4.7参照） |
 | 生成方式 | `@react-pdf/renderer`によるPDFネイティブ生成（Vercelのサーバーレス関数上で実行） |
 | 発行元情報 | マスタ設定に発行元情報欄（会社名・住所・電話番号・角印画像）を追加する（§4.4・§6） |
 | バージョン一覧 | 見積もり画面に、そのプロジェクトで発行済みの`estimate_versions`を一覧表示する（見積番号・発行日・有効期限・合計金額・発行者）。各行からPDFを再ダウンロードできる |
@@ -299,6 +302,15 @@ pages
   created_at               timestamptz
   updated_at               timestamptz
 
+estimate_line_items        -- 見積もりの手入力追加項目（素材費・値引き等、§4.7）
+  id                       uuid pk
+  project_id               uuid fk -> projects.id
+  label                    text    -- 項目名（例: 素材費、初回割引 等）
+  amount                   numeric -- 金額。正負自由入力（値引きは負の値で入力する）
+  sort_order               int
+  created_at               timestamptz
+  updated_at               timestamptz
+
 schedule_overrides         -- 手動編集の記録（§4.6）
   id                       uuid pk
   page_id                  uuid fk -> pages.id
@@ -325,7 +337,7 @@ estimate_versions           -- 見積書バージョン管理・PDF発行（§4.
   version_number           int     -- プロジェクト内の発行連番（1, 2, 3...）
   issued_at                timestamptz
   valid_until              date    -- issued_at + master.estimate_validity_days から算出
-  estimate_data            jsonb   -- 発行時点の凍結データ： { pages: [{ pageId, pageName, cost }], directionFee, subtotal, taxRate, taxAmount, total }
+  estimate_data            jsonb   -- 発行時点の凍結データ（表示順は §4.7 の①②③に対応）： { directionFee, pages: [{ pageId, pageName, cost }], lineItems: [{ label, amount }], subtotal, taxRate, taxAmount, total }
   pdf_url                  text    -- Supabase Storage（非公開バケット）に保存したPDFファイルのパス
   created_by               uuid fk -> auth.users.id
   created_at               timestamptz
@@ -346,7 +358,7 @@ share_links                -- 外部共有（§4.10）
   last_viewed_at           timestamptz null
 ```
 
-- **RLS**：`master` / `projects` / `project_owners` / `project_links` / `progress_groups` / `pages` / `schedule_overrides` / `ai_meta_generation_logs` は、`marketingdept-llc.com` ドメインの認証済みユーザーのみ読み書き可能（権限分離なし、§2）。`share_links` はチームメンバーのみ読み書き可能。共有閲覧画面（`share_view`）からのアクセスはService Role経由のサーバーサイド処理でトークン・パスワード照合を行い、クライアントから直接テーブルを読ませない。
+- **RLS**：`master` / `projects` / `project_owners` / `project_links` / `progress_groups` / `pages` / `estimate_line_items` / `schedule_overrides` / `ai_meta_generation_logs` は、`marketingdept-llc.com` ドメインの認証済みユーザーのみ読み書き可能（権限分離なし、§2）。`share_links` はチームメンバーのみ読み書き可能。共有閲覧画面（`share_view`）からのアクセスはService Role経由のサーバーサイド処理でトークン・パスワード照合を行い、クライアントから直接テーブルを読ませない。
 - `master.ai_api_key` はアプリ層で暗号化して保存する（環境変数の暗号鍵を使用。鍵管理はサーバー管理システムの`crypto.php`相当の方針をNext.js側で踏襲）。
 - **列単位の秘匿（重要・確定）**：RLSはテーブル単位の許可であり、列単位の秘匿は保証しない。`master.ai_api_key`は、クライアントに返る一切のSELECT（マスタ設定画面の表示・APIレスポンス含む）から明示的に除外する（`select('id, rates, standards, ...')`のように返す列を列挙し、`select('*')`は使わない）。マスタ設定画面では実際の値を返さず、「未設定」／「設定済み（下4桁のみ表示、例：`****ab12`）」のマスク表示のみ行う。Claude API呼び出し時の復号・利用は必ずサーバーサイド（Route Handler / Server Action、Supabase Service Role経由）に閉じ、クライアントバンドルやネットワークレスポンスに生の値を含めない。
 
@@ -407,6 +419,7 @@ share_links                -- 外部共有（§4.10）
 - [ ] スケジュールが営業日ベース・工程別レーン制約に基づき自動生成される
 - [ ] ガントチャートの手動編集が可能で、オーバーライド区間が自動再計算で上書きされない。後続工程の追従要否を都度選択できる
 - [ ] 見積もりがページ別コスト・ディレクション費（暦月カウント）・税抜/税込合計で自動算出され、CSVエクスポートできる
+- [ ] 見積もりに項目名・金額（正負自由入力）の追加項目（素材費・値引き等）を手入力で追加でき、合計計算・CSV・PDFに反映される。PDF発行後にマスタ単価や追加項目の内容を変更しても、発行済みバージョンの追加項目データは変わらない
 - [ ] 見積もり画面で「確定してPDF発行」を実行すると、見積番号・発行日・有効期限・自社情報（会社名・住所・電話番号・角印）を含む見積書PDFが発行され、過去バージョン一覧から再ダウンロードできる
 - [ ] PDF発行後にマスタ単価を変更しても、発行済みPDF（および対応する`estimate_versions`のデータ）の内容が変わらないこと
 - [ ] メタ情報・進行管理画面でSEO情報・進捗ステータスを編集できる

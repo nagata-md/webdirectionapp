@@ -27,11 +27,25 @@ Phase 0・Phase 1に着手し、以下まで完了。
 - **実機での疎通確認済み**：ローカル(`npm run dev`)で`/login`→「Googleでログイン」→Google認証→`/auth/callback`→`/projects`（プレースホルダー画面）への一連のログインフローが実際に成功したことをユーザー本人が確認。
 - ⚠️ **重要な未実装事項**：現時点では`marketingdept-llc.com`以外のGoogleアカウントでもログインできてしまう状態（ドメイン制限はPhase 3で実装予定のまま）。本番運用前に必ずPhase 3で対応すること。
 
+**2026-08-03 追記：spec.mdに見積もり追加項目を追加、Phase 2（データ層）完了**
+
+- spec.md §4.7に「追加項目」（素材費・値引き等の手入力行、`label`+`amount`の正負自由入力）を追加。表示順は**①ディレクション費→②ページ別コスト→③追加項目**で画面・CSV・PDFとも統一することを確定（spec §4.7・§4.11・§6）。新規テーブル`estimate_line_items`を追加。
+- **Supabase CLIの認証**：この環境では`supabase login`のブラウザ自動フローが使えない（非TTY）ため、Personal Access Tokenで`supabase login --token ...`を実行して認証した。**このトークンは会話ログに残っているため、作業完了後に失効（Revoke）すること**（ユーザー未対応であれば次回冒頭で確認）。
+- `supabase link --project-ref dslihwmypnxihyzbwjyq`でプロジェクトをリンクし、`supabase/migrations/`に2本のマイグレーションを作成・適用した。
+  - `20260803015113_initial_schema.sql`：spec §6準拠の全11テーブル（`master`/`projects`/`project_owners`/`project_links`/`progress_groups`/`pages`/`estimate_line_items`/`schedule_overrides`/`ai_meta_generation_logs`/`estimate_versions`/`share_links`）、インデックス、`updated_at`自動更新トリガー、`is_team_member()`ヘルパー、全テーブルのRLS（`marketingdept-llc.com`ドメインの認証済みユーザーのみ読み書き可）、`authenticated`ロールへのテーブル権限付与。
+  - `20260803015206_storage_buckets.sql`：Storageバケット`estimate-pdfs`・`stamps`（いずれも非公開）と、チームメンバーのみアクセス可能なRLSポリシー。
+  - **`master.ai_api_key`の列単位アクセス制御（重要・DB層で実装済み）**：`revoke select (ai_api_key) on public.master from authenticated`により、`authenticated`ロールでの`select('*')`は`ai_api_key`列を含むため失敗する設計にした（RLSの行単位制御に加えた多層防御）。`service_role`には明示的に`select`を許可済み。
+  - `master`テーブルはユニークインデックス（定数式）でシングルトン制約を実装。2件目の作成が`409 duplicate key`で拒否されることを確認済み。
+  - `supabase db push --include-seed`で`supabase/seed.sql`（マスタの初期1行）を投入し、サービスロールキーで実際にレコードが取得できることを確認済み。
+  - anon（未ログイン）キーでの`projects`/`master`取得はRLSにより空配列が返ることを確認済み（データは一切漏れない）。
+  - ⚠️ **未検証**：`authenticated`ロールでの`select('*')`が実際に`ai_api_key`列で失敗すること自体は、実ログインセッションでのテストが必要でまだ未実施（Phase 4のマスタ設定画面実装時に実ブラウザで確認する）。
+
 ### 次回セッションの開始点
 
-1. **Vercel環境変数の設定**：Vercelプロジェクトの Settings → Environment Variables に `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY`（＝Supabaseのpublishable key） / `SUPABASE_SERVICE_ROLE_KEY`（＝Supabaseのsecret key）を登録し、再デプロイしてVercel上でもログインが通ることを確認する（Phase 0の残タスク）。
-2. Phase 0完了確認後、**Phase 2（データ層）**に進む：`supabase/migrations/`にspec §6準拠の全テーブル（`master`/`projects`/`project_owners`/`project_links`/`progress_groups`/`pages`/`schedule_overrides`/`estimate_versions`/`share_links`/`ai_meta_generation_logs`）のマイグレーションSQLを作成し、今回作成した本番Supabaseプロジェクトに適用する。RLSポリシー・`ai_api_key`列除外の徹底も同フェーズで行う。
-3. Phase 2の目処が立った時点で、Phase 3（認証・セッション管理）に戻り、ドメイン制限（`marketingdept-llc.com`以外を拒否）を実装する。
+1. **Vercel環境変数の設定**：Vercelプロジェクトの Settings → Environment Variables に `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY`（＝Supabaseのpublishable key） / `SUPABASE_SERVICE_ROLE_KEY`（＝Supabaseのsecret key）を登録し、再デプロイしてVercel上でもログインが通ることを確認する（Phase 0の残タスク、まだ未完了）。
+2. Supabase Personal Access Tokenが失効済みか確認する（未失効なら失効する）。
+3. **Phase 3（認証・セッション管理）**：`marketingdept-llc.com`以外のGoogleアカウントを拒否するドメイン制限を、`app/(app)/layout.tsx`のサーバーサイドチェックとして実装する（現状はTODOコメントのみ）。
+4. その後、Phase 4（マスタ設定画面）・Phase 5（プロジェクト管理）と進む。
 
 以降、各フェーズ完了ごとに本セクションへ実績・発見事項・バグ修正を追記していく（`サーバー情報管理アプリ_masterplan.md`と同様の運用）。
 
@@ -137,8 +151,8 @@ supabase/
 
 ### Phase 2 — データ層（Supabase / Postgres）
 **ゴール**：spec §6準拠の全テーブルが作成され、RLSポリシーが機能する。
-1. `supabase/migrations/`にマイグレーションSQLを作成：`master` / `projects` / `project_owners` / `project_links` / `progress_groups` / `pages` / `schedule_overrides` / `estimate_versions` / `share_links` / `ai_meta_generation_logs`（spec §6）。
-2. インデックス：`pages(project_id)` / `pages(parent_id)` / `pages(group_id)` / `project_links(project_id, category)` / `schedule_overrides(page_id, phase_key)` / `estimate_versions(project_id)` / `share_links(token)` unique / `share_links(project_id)`。
+1. `supabase/migrations/`にマイグレーションSQLを作成：`master` / `projects` / `project_owners` / `project_links` / `progress_groups` / `pages` / `estimate_line_items` / `schedule_overrides` / `estimate_versions` / `share_links` / `ai_meta_generation_logs`（spec §6）。
+2. インデックス：`pages(project_id)` / `pages(parent_id)` / `pages(group_id)` / `project_links(project_id, category)` / `estimate_line_items(project_id)` / `schedule_overrides(page_id, phase_key)` / `estimate_versions(project_id)` / `share_links(token)` unique / `share_links(project_id)`。
 3. RLSポリシー：チーム共有テーブルは認証済みかつメールドメインが`marketingdept-llc.com`のユーザーのみ読み書き可（spec §6）。`share_links`はチームメンバーのみ読み書き可、共有閲覧はService Role経由のサーバー処理に閉じ、クライアントから直接テーブルを読ませない。
 4. **`master`テーブルへのSELECTは`ai_api_key`列を含まないこと**を保証する構成にする（明示列挙のクエリ、または`ai_api_key`を除外したビュー`master_public`）。`select('*')`を使う実装を全面的に禁止する（spec §6・§8、重要）。
 5. Supabase Storageバケット：`estimate-pdfs`（非公開）・`stamps`（非公開）を作成し、署名付きURLのみでアクセス可能にする。
@@ -196,12 +210,13 @@ supabase/
 
 ### Phase 9 — 見積もり・PDF発行・バージョン管理
 **ゴール**：📌 見積もり自動算出・CSVエクスポート・PDF発行・バージョン管理が仕様通り動作する（spec §4.7・4.11）。
-1. 見積もり計算（ページ別コスト＋ディレクション費（暦月カウント）＋税抜/税込合計、マスタの消費税率を使用、spec §4.7）。
-2. CSVエクスポート。
-3. `lib/estimate/pdfTemplate.tsx`：`@react-pdf/renderer`で見積書テンプレート（見積番号・発行日・有効期限・御中・件名・内訳・小計/税/合計・発行元情報＋角印画像、spec §4.11）。
-4. 「確定してPDF発行」アクション（`api/estimate/issue-pdf/route.ts`）：押下時点の計算結果を`estimate_data`として`estimate_versions`に保存し、`quote_number`を採番（例：`EST-YYYYMMDD-連番`）、`valid_until`をマスタの`estimate_validity_days`から算出、PDFを生成して`estimate-pdfs`バケットへ保存し`pdf_url`に記録する。
-5. バージョン一覧UI（見積番号・発行日・有効期限・合計金額・発行者、署名付きURLでの再ダウンロード）。
-**完了条件**：発行済み`estimate_versions`がイミュータブルであることを確認する（発行後にマスタ単価を変更し、既存バージョンのデータ・PDFが変化しないことをテストする）。📌 spec §11（新規追加項目含む）。
+1. 見積もり計算（ディレクション費（暦月カウント）＋ページ別コスト＋追加項目＋税抜/税込合計、マスタの消費税率を使用、spec §4.7）。**画面・CSV・PDFとも「①ディレクション費→②ページ別コスト→③追加項目」の表示順で統一する**。
+2. `estimate_line_items`のCRUD UI（項目名・金額の手入力行を追加/編集/削除。金額は正負自由入力で、値引きは負の値として入力、spec §4.7）。
+3. CSVエクスポート（①→②→③の順、追加項目も内訳に含める）。
+4. `lib/estimate/pdfTemplate.tsx`：`@react-pdf/renderer`で見積書テンプレート（見積番号・発行日・有効期限・御中・件名・①ディレクション費→②ページ別内訳→③追加項目の内訳・小計/税/合計・発行元情報＋角印画像、spec §4.11）。
+5. 「確定してPDF発行」アクション（`api/estimate/issue-pdf/route.ts`）：押下時点の計算結果（ページ別コスト・ディレクション費・`estimate_line_items`のスナップショットを含む）を`estimate_data`として`estimate_versions`に保存し、`quote_number`を採番（例：`EST-YYYYMMDD-連番`）、`valid_until`をマスタの`estimate_validity_days`から算出、PDFを生成して`estimate-pdfs`バケットへ保存し`pdf_url`に記録する。
+6. バージョン一覧UI（見積番号・発行日・有効期限・合計金額・発行者、署名付きURLでの再ダウンロード）。
+**完了条件**：発行済み`estimate_versions`がイミュータブルであることを確認する（発行後にマスタ単価・追加項目を変更し、既存バージョンのデータ・PDFが変化しないことをテストする）。📌 spec §11（新規追加項目含む）。
 
 > ⚠️ 進め方の指針：テンプレートのビジュアル（角印配置・レイアウト）は先に簡易モックで確認してから本実装に進めると手戻りが少ない（§6参照）。
 

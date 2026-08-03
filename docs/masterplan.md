@@ -181,6 +181,13 @@ Phase 0・Phase 1に着手し、以下まで完了。
 - **実装上の制約**：Next.jsのlayout.tsxは`searchParams`を受け取れない仕様のため、パスワード誤り時のエラー表示（`?error=1`）は`PasswordErrorNotice.tsx`というClient Component（`useSearchParams`使用、`Suspense`でラップ）に切り出した。
 - 実ブラウザでの動作確認はこの構成変更後、ユーザー本人にお願いする。
 
+**機能追加（ユーザー要望）**：「基本情報も共有したい。秘密情報あり／なしの2種類にして、なしは基本情報（プロジェクト名・クライアント名・着手日のみ）、ありはすべて見せる（開発サポート者用）」との要望を受け、共有可能セクションに基本情報を追加した（spec §4.10・§6に反映）。
+
+- `share_links.include_sections`に`basicInfoPublic`・`basicInfoFull`の2つのbooleanキーを追加（マイグレーション不要、jsonbのため）。両方同時にtrueにはしない（`basicInfoFull`が優先、`ShareCreateForm.tsx`でチェックボックス2つを相互排他的に制御）。
+- `basicInfoPublic`＝プロジェクト名・クライアント名・着手日のみ。`basicInfoFull`＝それに加えて自社担当者（`project_owners`）・サーバー情報リンク・Figmaリンク（`project_links`）を含む全項目（社内の基本情報タブ相当、編集フォームなしの参照専用）。
+- `app/(public)/share/[token]/basic-info/page.tsx`・`ShareBasicInfoView.tsx`を追加。タブの並び順は社内画面に合わせて「基本情報」を先頭に配置（`ShareTabs.tsx`・ルートの`page.tsx`のリダイレクト優先順位も同様）。
+- **テスト**：Service Role経由で秘密情報なし／ありの2パターンの共有リンクを作成し、なしの方は自社担当者・サーバー情報リンクのセクション自体が出力されないこと、ありの方はサーバーURL・担当者名まで含めて表示されることを`curl`で確認済み（テストデータは削除済み）。
+
 ### 次回セッションの開始点
 
 1. Supabase Personal Access Tokenが失効済みか確認する。

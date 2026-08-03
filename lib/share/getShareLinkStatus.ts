@@ -3,6 +3,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { isShareLinkExpired } from "./expiry";
 
 export type ShareLinkSections = {
+  basicInfoPublic: boolean;
+  basicInfoFull: boolean;
   estimate: boolean;
   directoryMap: boolean;
   schedule: boolean;
@@ -51,6 +53,8 @@ export async function getShareLinkStatus(
       mode: link.mode as "live" | "estimateVersion",
       estimateVersionId: link.estimate_version_id,
       sections: (link.include_sections as ShareLinkSections | null) ?? {
+        basicInfoPublic: false,
+        basicInfoFull: false,
         estimate: false,
         directoryMap: false,
         schedule: false,

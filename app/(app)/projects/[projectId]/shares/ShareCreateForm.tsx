@@ -19,6 +19,7 @@ export function ShareCreateForm({
   const [mode, setMode] = useState<"live" | "estimateVersion">(
     estimateVersions.length > 0 ? "estimateVersion" : "live",
   );
+  const [basicInfo, setBasicInfo] = useState<"none" | "public" | "full">("none");
 
   return (
     <form action={createShareLink} className="rounded-panel border border-border-strong p-4">
@@ -27,6 +28,24 @@ export function ShareCreateForm({
       <div className="mb-3">
         <span className="mb-1 block text-[12px] font-semibold text-muted">公開セクション</span>
         <div className="flex flex-wrap gap-4 text-[13px]">
+          <label className="inline-flex items-center gap-1.5">
+            <input
+              type="checkbox"
+              name="section.basicInfoPublic"
+              checked={basicInfo === "public"}
+              onChange={(e) => setBasicInfo(e.target.checked ? "public" : "none")}
+            />
+            基本情報（秘密情報なし）
+          </label>
+          <label className="inline-flex items-center gap-1.5">
+            <input
+              type="checkbox"
+              name="section.basicInfoFull"
+              checked={basicInfo === "full"}
+              onChange={(e) => setBasicInfo(e.target.checked ? "full" : "none")}
+            />
+            基本情報（秘密情報あり・開発サポート者用）
+          </label>
           <label className="inline-flex items-center gap-1.5">
             <input
               type="checkbox"
@@ -49,6 +68,9 @@ export function ShareCreateForm({
             メタ情報
           </label>
         </div>
+        <p className="mt-1 text-[12px] text-subtle">
+          基本情報は「秘密情報なし」（プロジェクト名・クライアント名・着手日のみ）と「秘密情報あり」（自社担当者・サーバー情報リンク・Figmaリンクを含む全項目）のどちらか一方を選べます。
+        </p>
       </div>
 
       {includeEstimate && (

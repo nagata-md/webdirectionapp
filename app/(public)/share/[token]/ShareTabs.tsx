@@ -8,14 +8,17 @@ export function ShareTabs({ token, sections }: { token: string; sections: ShareL
   const pathname = usePathname();
   const base = `/share/${token}`;
 
+  const showBasicInfo = sections.basicInfoPublic || sections.basicInfoFull;
+
   const allTabs = [
-    { key: "directoryMap", label: "ディレクトリマップ", href: `${base}/directory-map` },
-    { key: "schedule", label: "スケジュール", href: `${base}/schedule` },
-    { key: "estimate", label: "見積もり", href: `${base}/estimate` },
-    { key: "meta", label: "メタ情報", href: `${base}/meta` },
+    { key: "basicInfo", label: "基本情報", href: `${base}/basic-info`, show: showBasicInfo },
+    { key: "directoryMap", label: "ディレクトリマップ", href: `${base}/directory-map`, show: sections.directoryMap },
+    { key: "schedule", label: "スケジュール", href: `${base}/schedule`, show: sections.schedule },
+    { key: "estimate", label: "見積もり", href: `${base}/estimate`, show: sections.estimate },
+    { key: "meta", label: "メタ情報", href: `${base}/meta`, show: sections.meta },
   ] as const;
 
-  const tabs = allTabs.filter((tab) => sections[tab.key]);
+  const tabs = allTabs.filter((tab) => tab.show);
 
   return (
     <div className="mb-5 flex gap-1 border-b border-border">

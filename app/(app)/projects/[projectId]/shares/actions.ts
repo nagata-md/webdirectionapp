@@ -7,6 +7,8 @@ import { generateShareToken } from "@/lib/share/token";
 import { hashSharePassword } from "@/lib/share/password";
 
 export type ShareSections = {
+  basicInfoPublic: boolean;
+  basicInfoFull: boolean;
   estimate: boolean;
   directoryMap: boolean;
   schedule: boolean;
@@ -17,14 +19,20 @@ export async function createShareLink(formData: FormData) {
   const supabase = await createClient();
   const projectId = String(formData.get("projectId"));
 
+  const basicInfoFull = formData.get("section.basicInfoFull") === "on";
   const sections: ShareSections = {
+    // basicInfoFullが含まれる場合はbasicInfoPublicの内容も包含するため、
+    // 二重にフラグを立てず片方に一本化する（spec §4.10）
+    basicInfoPublic: !basicInfoFull && formData.get("section.basicInfoPublic") === "on",
+    basicInfoFull,
     estimate: formData.get("section.estimate") === "on",
     directoryMap: formData.get("section.directoryMap") === "on",
     schedule: formData.get("section.schedule") === "on",
     meta: formData.get("section.meta") === "on",
   };
 
-  if (!sections.estimate && !sections.directoryMap && !sections.schedule && !sections.meta) {
+  const hasAnySection = Object.values(sections).some(Boolean);
+  if (!hasAnySection) {
     throw new Error("少なくとも1つのセクションを選択してください");
   }
 

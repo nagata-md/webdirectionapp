@@ -18,6 +18,7 @@ export default async function ShareRootPage({
   }
 
   const { sections } = result.link;
+  if (sections.basicInfoPublic || sections.basicInfoFull) redirect(`/share/${token}/basic-info`);
   if (sections.directoryMap) redirect(`/share/${token}/directory-map`);
   if (sections.schedule) redirect(`/share/${token}/schedule`);
   if (sections.estimate) redirect(`/share/${token}/estimate`);

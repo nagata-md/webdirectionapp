@@ -7,6 +7,8 @@ import { CopyLinkButton } from "./CopyLinkButton";
 import { RevokeShareLinkForm } from "./RevokeShareLinkForm";
 
 const SECTION_LABELS: Record<string, string> = {
+  basicInfoPublic: "基本情報（秘密情報なし）",
+  basicInfoFull: "基本情報（秘密情報あり）",
   estimate: "見積もり",
   directoryMap: "ディレクトリマップ",
   schedule: "スケジュール",

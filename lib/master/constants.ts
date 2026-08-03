@@ -48,8 +48,19 @@ export type TopRates = Rates;
 // CMS構築費（Phase 12）。複雑度ごとに金額・日数のみ（コスト工程の軸はない）
 export type CmsRates = Record<Complexity, RateEntry>;
 
-export type StandardEntry = { checkback: number; buffer: number };
+// 2校期間（2026-08-03新規要件）：初稿提出→チェックバック→2校作業→2校チェックバック→バッファ→次工程。
+// 構成・デザイン・コーディング・テストアップの4工程にのみ適用する（CMS構築・公開には適用しない、
+// lib/schedule/computeSchedule.tsのSECOND_DRAFT_PHASESを参照）。
+export type StandardEntry = {
+  checkback: number;
+  buffer: number;
+  secondDraftDays: number;
+  secondCheckbackDays: number;
+};
 export type Standards = Record<SchedulePhase, StandardEntry>;
+
+// 2校期間を適用するスケジュール工程（構成・デザイン・コーディング・テストアップのみ）
+export const SECOND_DRAFT_PHASES: readonly SchedulePhase[] = ["構成", "デザイン", "コーディング", "テストアップ"];
 
 export type ParallelByPhase = Record<SchedulePhase, number>;
 
@@ -60,5 +71,5 @@ export function emptyRateEntry(): RateEntry {
 }
 
 export function emptyStandardEntry(): StandardEntry {
-  return { checkback: 0, buffer: 0 };
+  return { checkback: 0, buffer: 0, secondDraftDays: 0, secondCheckbackDays: 0 };
 }

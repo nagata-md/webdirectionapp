@@ -312,4 +312,88 @@ describe("computeSchedule", () => {
     // 構成レーンが1でも、3ページとも同じ開始日(プロジェクト開始日)になる
     expect(starts).toEqual(["2026-01-05", "2026-01-05", "2026-01-05"]);
   });
+
+  it("2校期間(2校作業日数+2校チェックバック日数)が構成→デザインの待機に加算される", () => {
+    const input: ComputeScheduleInput = {
+      projectStartDate: "2026-01-05", // 月
+      pages: [
+        {
+          id: "p1",
+          type: "lower",
+          complexity: "M",
+          wireNeeded: true,
+          copyNeeded: true,
+          cmsTier: null,
+          groupId: null,
+          priority: 1,
+        },
+      ],
+      groups: [],
+      parallelByPhase: ALL_LANES_1,
+      master: baseMaster({
+        standards: {
+          構成: { checkback: 2, buffer: 1, secondDraftDays: 3, secondCheckbackDays: 3 },
+          デザイン: { checkback: 0, buffer: 0 },
+          コーディング: { checkback: 0, buffer: 0 },
+          "CMS構築": { checkback: 0, buffer: 0 },
+          テストアップ: { checkback: 0, buffer: 0 },
+          公開: { checkback: 0, buffer: 0 },
+        },
+      }),
+      overrides: [],
+    };
+
+    const result = computeSchedule(input);
+    const p1 = result.pages.find((p) => p.pageId === "p1")!;
+    const composition = p1.phases.find((ph) => ph.phase === "構成")!;
+    const design = p1.phases.find((ph) => ph.phase === "デザイン")!;
+
+    // 構成: 01-05(月)〜01-06(火)の2営業日
+    expect(composition.end).toBe("2026-01-06");
+    // 待機 = checkback(2)+secondDraft(3)+secondCheckback(3)+buffer(1) = 9営業日 → +1でデザイン開始
+    expect(design.start).toBe("2026-01-20");
+  });
+
+  it("2校期間はCMS構築工程には適用されない", () => {
+    const input: ComputeScheduleInput = {
+      projectStartDate: "2026-01-05",
+      pages: [
+        {
+          id: "p1",
+          type: "lower",
+          complexity: "M",
+          wireNeeded: true,
+          copyNeeded: true,
+          cmsTier: "M",
+          groupId: null,
+          priority: 1,
+        },
+      ],
+      groups: [],
+      parallelByPhase: ALL_LANES_1,
+      master: baseMaster({
+        standards: {
+          構成: { checkback: 0, buffer: 0 },
+          デザイン: { checkback: 0, buffer: 0 },
+          コーディング: { checkback: 0, buffer: 0 },
+          "CMS構築": { checkback: 0, buffer: 0, secondDraftDays: 5, secondCheckbackDays: 5 },
+          テストアップ: { checkback: 0, buffer: 0 },
+          公開: { checkback: 0, buffer: 0 },
+        },
+      }),
+      overrides: [],
+    };
+
+    const result = computeSchedule(input);
+    const p1 = result.pages.find((p) => p.pageId === "p1")!;
+    const cms = p1.phases.find((ph) => ph.phase === "CMS構築")!;
+    const testup = p1.phases.find((ph) => ph.phase === "テストアップ")!;
+
+    // CMS構築にsecondDraftDays/secondCheckbackDaysを設定しても無視され（checkback/bufferが
+    // ともに0のため）、テストアップはCMS構築完了の翌営業日にそのまま始まる。
+    // 5+5営業日分の待機が加算されていれば、この日付より大きくズレるはずである。
+    const cmsEndIdx = Math.floor(new Date(`${cms.end}T00:00:00Z`).getTime() / 86400000);
+    const testupStartIdx = Math.floor(new Date(`${testup.start}T00:00:00Z`).getTime() / 86400000);
+    expect(testupStartIdx - cmsEndIdx).toBeLessThanOrEqual(3); // 週末を挟んでも最大3暦日以内
+  });
 });

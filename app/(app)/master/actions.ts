@@ -84,12 +84,17 @@ export async function saveScheduleMaster(formData: FormData) {
     };
   }
 
-  const standards: Record<string, { checkback: number; buffer: number }> = {};
+  const standards: Record<
+    string,
+    { checkback: number; buffer: number; secondDraftDays: number; secondCheckbackDays: number }
+  > = {};
   const defaultParallelByPhase: Record<string, number> = {};
   for (const phase of SCHEDULE_PHASES) {
     standards[phase] = {
       checkback: num(formData, `standards.${phase}.checkback`),
       buffer: num(formData, `standards.${phase}.buffer`),
+      secondDraftDays: num(formData, `standards.${phase}.secondDraftDays`),
+      secondCheckbackDays: num(formData, `standards.${phase}.secondCheckbackDays`),
     };
     defaultParallelByPhase[phase] = num(formData, `parallel.${phase}`);
   }

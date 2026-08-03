@@ -5,7 +5,10 @@ export type MasterForSchedule = {
   rates: Record<string, Record<string, { days: number; cost: number }>>;
   topRates: Record<string, Record<string, { days: number; cost: number }>>;
   cmsRates: Record<string, { days: number; cost: number }>;
-  standards: Record<string, { checkback: number; buffer: number }>;
+  standards: Record<
+    string,
+    { checkback: number; buffer: number; secondDraftDays?: number; secondCheckbackDays?: number }
+  >;
   weeklyOff: number[];
   holidays: Holiday[];
 };

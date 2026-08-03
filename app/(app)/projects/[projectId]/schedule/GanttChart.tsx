@@ -20,7 +20,34 @@ function toDayIndex(dateStr: string): number {
   return Math.floor(new Date(`${dateStr}T00:00:00Z`).getTime() / 86400000);
 }
 
-// 工程バー・待機バーを「最終日以外」「最終日（濃い色）」の2区間に分けて描画する
+// [start, end]の範囲を、非稼働日（週末・休日）で分断された「連続稼働日の区間」に分割する。
+// 土日・休日にカラーバーが被って作業しているように見えないようにするための処理。
+function getBusinessDayRuns(
+  start: string,
+  end: string,
+  isOffByDate: Map<string, boolean>,
+): { start: string; end: string }[] {
+  const runs: { start: string; end: string }[] = [];
+  let runStart: string | null = null;
+  let cursor = start;
+
+  while (compareDates(cursor, end) <= 0) {
+    const off = isOffByDate.get(cursor) ?? false;
+    if (!off && runStart === null) runStart = cursor;
+    if (off && runStart !== null) {
+      runs.push({ start: runStart, end: shiftCalendarDays(cursor, -1) });
+      runStart = null;
+    }
+    cursor = shiftCalendarDays(cursor, 1);
+  }
+  if (runStart !== null) {
+    runs.push({ start: runStart, end: shiftCalendarDays(cursor, -1) });
+  }
+  return runs;
+}
+
+// 工程バー・待機バーを、非稼働日を除いた連続稼働日の区間ごとに描画する。
+// 最終日（end）だけは常に濃い色のセルを重ねて強調する（endは工程エンジンにより必ず稼働日になる）。
 function BarSegments({
   start,
   end,
@@ -29,6 +56,7 @@ function BarSegments({
   ringClass,
   title,
   onClick,
+  isOffByDate,
 }: {
   start: string;
   end: string;
@@ -37,30 +65,31 @@ function BarSegments({
   ringClass?: string;
   title: string;
   onClick?: () => void;
+  isOffByDate: Map<string, boolean>;
 }) {
-  const hasBody = compareDates(start, end) < 0;
-  const bodyEnd = shiftCalendarDays(end, -1);
+  const runs = getBusinessDayRuns(start, end, isOffByDate);
 
   return (
     <>
-      {hasBody && (
+      {runs.map((run, i) => (
         <button
+          key={i}
           type="button"
           onClick={onClick}
           title={title}
           style={{
-            left: leftPx(start),
-            width: (toDayIndex(bodyEnd) - toDayIndex(start) + 1) * DAY_WIDTH,
+            left: leftPx(run.start),
+            width: (toDayIndex(run.end) - toDayIndex(run.start) + 1) * DAY_WIDTH,
           }}
-          className={`absolute top-0 h-7 rounded-l ${colorClass} ${ringClass ?? ""}`}
+          className={`absolute top-0 h-7 rounded ${colorClass} ${ringClass ?? ""}`}
         />
-      )}
+      ))}
       <button
         type="button"
         onClick={onClick}
         title={title}
         style={{ left: leftPx(end), width: DAY_WIDTH, filter: DARK_FILTER }}
-        className={`absolute top-0 h-7 ${hasBody ? "rounded-r" : "rounded"} ${colorClass} ${ringClass ?? ""}`}
+        className={`absolute top-0 h-7 rounded ${colorClass} ${ringClass ?? ""}`}
       />
     </>
   );
@@ -98,6 +127,7 @@ export function GanttChart({
   const rangeEnd = [...allDates].sort().at(-1)!;
   const { days, months } = buildDateGrid(rangeStart, rangeEnd, weeklyOff, holidays);
   const dayIndexByDate = new Map(days.map((d, i) => [d.date, i]));
+  const isOffByDate = new Map(days.map((d) => [d.date, d.isOff]));
   const totalWidth = days.length * DAY_WIDTH;
 
   function leftPx(dateStr: string): number {
@@ -239,6 +269,7 @@ export function GanttChart({
                           leftPx={leftPx}
                           colorClass="bg-phase-wait"
                           title={`チェックバック・バッファ待ち: ${seg.start} 〜 ${seg.end}`}
+                          isOffByDate={isOffByDate}
                         />
                       ))}
                       {ps.phases.map((ph) => (
@@ -257,6 +288,7 @@ export function GanttChart({
                                 : { pageId: ps.pageId, phase: ph.phase },
                             )
                           }
+                          isOffByDate={isOffByDate}
                         />
                       ))}
                       {launchDate && (

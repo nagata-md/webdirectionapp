@@ -1,4 +1,4 @@
-import { SCHEDULE_PHASES, type SchedulePhase } from "@/lib/master/constants";
+import { SCHEDULE_PHASES, SECOND_DRAFT_PHASES, type SchedulePhase } from "@/lib/master/constants";
 import { maxDate, shiftBusinessDays, type DateString } from "./businessDay";
 import { buildGroupBuckets } from "./groupSequencer";
 import { createLaneState, reserveLane } from "./laneAllocator";
@@ -102,8 +102,18 @@ export function computeSchedule(input: ComputeScheduleInput): ComputeScheduleRes
           compositionEnds.push(end);
         }
 
-        const standard = standards[phase] ?? { checkback: 0, buffer: 0 };
-        const wait = (standard.checkback ?? 0) + (standard.buffer ?? 0);
+        // 2校期間（2026-08-03新規要件）：初稿提出→チェックバック→2校作業→2校チェックバック→バッファ→次工程。
+        // 構成・デザイン・コーディング・テストアップの4工程にのみ適用する（CMS構築・公開は対象外）。
+        const standard = standards[phase] ?? {
+          checkback: 0,
+          buffer: 0,
+          secondDraftDays: 0,
+          secondCheckbackDays: 0,
+        };
+        const secondDraftWait = SECOND_DRAFT_PHASES.includes(phase)
+          ? (standard.secondDraftDays ?? 0) + (standard.secondCheckbackDays ?? 0)
+          : 0;
+        const wait = (standard.checkback ?? 0) + secondDraftWait + (standard.buffer ?? 0);
         readyTime = shiftBusinessDays(end, wait + 1, weeklyOff, holidays);
       }
 

@@ -4,7 +4,7 @@ import { Panel, SectionLabel } from "@/components/ui/Panel";
 import { FormRow } from "@/components/ui/FormRow";
 import { Button } from "@/components/ui/Button";
 import { SavedBanner } from "@/components/ui/SavedBanner";
-import { COMPLEXITIES, COST_PHASES, SCHEDULE_PHASES } from "@/lib/master/constants";
+import { COMPLEXITIES, COST_PHASES, SCHEDULE_PHASES, SECOND_DRAFT_PHASES } from "@/lib/master/constants";
 import { getAiKeyStatus, getMasterSettings, getStampSignedUrl } from "@/lib/master/data";
 import { HolidaysEditor } from "./HolidaysEditor";
 import { ImpactAwareSubmitButton } from "./ImpactAwareSubmitButton";
@@ -204,6 +204,12 @@ export default async function MasterPage() {
                     チェックバック日数
                   </th>
                   <th className="border-b-2 border-navy bg-surface-subtle px-2 py-2 text-left font-label text-[11px] uppercase tracking-wide text-muted">
+                    2校作業日数
+                  </th>
+                  <th className="border-b-2 border-navy bg-surface-subtle px-2 py-2 text-left font-label text-[11px] uppercase tracking-wide text-muted">
+                    2校チェックバック日数
+                  </th>
+                  <th className="border-b-2 border-navy bg-surface-subtle px-2 py-2 text-left font-label text-[11px] uppercase tracking-wide text-muted">
                     バッファ日数
                   </th>
                   <th className="border-b-2 border-navy bg-surface-subtle px-2 py-2 text-left font-label text-[11px] uppercase tracking-wide text-muted">
@@ -215,6 +221,7 @@ export default async function MasterPage() {
                 {SCHEDULE_PHASES.map((phase) => {
                   const standard = master.standards?.[phase];
                   const parallel = master.default_parallel_by_phase?.[phase];
+                  const hasSecondDraft = (SECOND_DRAFT_PHASES as readonly string[]).includes(phase);
                   return (
                     <tr key={phase} className="border-b border-border">
                       <td className="px-2 py-1.5 font-semibold">{phase}</td>
@@ -226,6 +233,32 @@ export default async function MasterPage() {
                           className={numberInputClass}
                           aria-label={`${phase} チェックバック日数`}
                         />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        {hasSecondDraft ? (
+                          <input
+                            type="number"
+                            name={`standards.${phase}.secondDraftDays`}
+                            defaultValue={standard?.secondDraftDays ?? 0}
+                            className={numberInputClass}
+                            aria-label={`${phase} 2校作業日数`}
+                          />
+                        ) : (
+                          <span className="text-subtle">―</span>
+                        )}
+                      </td>
+                      <td className="px-2 py-1.5">
+                        {hasSecondDraft ? (
+                          <input
+                            type="number"
+                            name={`standards.${phase}.secondCheckbackDays`}
+                            defaultValue={standard?.secondCheckbackDays ?? 0}
+                            className={numberInputClass}
+                            aria-label={`${phase} 2校チェックバック日数`}
+                          />
+                        ) : (
+                          <span className="text-subtle">―</span>
+                        )}
                       </td>
                       <td className="px-2 py-1.5">
                         <input
@@ -252,6 +285,9 @@ export default async function MasterPage() {
               </tbody>
             </table>
           </div>
+          <p className="mb-5 text-[12px] text-subtle">
+            2校期間（作業日数・チェックバック日数）は構成・デザイン・コーディング・テストアップの4工程にのみ適用されます（CMS構築・公開は対象外）。
+          </p>
 
           <ImpactAwareSubmitButton />
         </form>

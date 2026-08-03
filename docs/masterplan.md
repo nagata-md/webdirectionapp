@@ -167,7 +167,19 @@ Phase 0・Phase 1に着手し、以下まで完了。
 - **設計判断**：spec §4.10の「除外を推奨する内部運用項目」（優先度・並行作業人数設定・休日カレンダー・内部担当者名・進捗ステータス）は、セクション単位のON/OFFとは別に項目ごとのトグルは設けず、含めたセクション内で常に非表示にする固定仕様とした。spec.mdにもその旨を明記済み。
 - spec.md §10のD2（共有URLの有効期限デフォルト値・パスワード必須化の是非）を解決として更新：デフォルト90日（発行時に変更可）、パスワードは任意設定・必須化しない。
 - **テスト**：Service Role経由でテスト用の`share_links`を4パターン（ライブ・全セクション/パスワード付きestimateVersion/失効済み/期限切れ）作成し、`curl`で公開閲覧画面の全分岐（存在しない・失効・期限切れ・パスワード要求・正しいCookieでの閲覧・誤ったCookieでの拒否）と`view_count`/`last_viewed_at`の更新、`checkLiveShareImpact`相当のクエリが失効・期限切れ・estimateVersionモードのリンクを正しく除外することを確認。テストデータは確認後に削除済み。
-- 実ブラウザでのユーザー本人による確認はまだ行っていない（本フェーズ完了時点でdevサーバーは起動済み）。
+- 実ブラウザでのユーザー本人による確認済み。ただし共有リンク一覧画面で不具合報告あり→修正済み（下記）。
+
+**バグ修正（ユーザー報告）**：共有リンク一覧画面（`shares/page.tsx`）を開くとサーバーエラーになる不具合。原因は、Server Componentの`<form>`に確認ダイアログ用の`onSubmit`ハンドラを直接渡していたこと（「Event handlers cannot be passed to Client Component props」）。失効ボタンの確認ダイアログ部分を`RevokeShareLinkForm.tsx`というClient Componentに切り出して解消した。
+
+**UI変更（ユーザー要望）**：「共有リンク先の画面は、通常運用者が見る画面と同等のデザインなタブ形式にしたい」との要望を受け、共有閲覧画面（`/share/[token]`）を1ページに全セクションを縦積みする構成から、社内画面（`ProjectTabs`）と同じ「タブ切り替え＋各セクション1ページ」の構成に作り直した。
+
+- `app/(public)/share/[token]/layout.tsx`：トークン検証（存在しない／失効／期限切れ）・パスワード照合（Cookie）・閲覧記録更新（`view_count`／`last_viewed_at`）・`PageHeader`＋`ShareTabs`の表示をレイアウトに集約。無効なリンク／パスワード未照合の場合は`children`を描画せず、レイアウト自身がエラーメッセージ・パスワードフォームを返す。
+- `app/(public)/share/[token]/page.tsx`：ルートは含まれる最初のセクション（ディレクトリマップ→スケジュール→見積もり→メタ情報の順）へ`redirect`するだけのページに変更。
+- `app/(public)/share/[token]/{directory-map,schedule,estimate,meta}/page.tsx`：セクションごとに独立したページとして分離（社内の`app/(app)/projects/[projectId]/{directory-map,schedule,estimate,meta}/page.tsx`と同じ構成）。`include_sections`で除外されているセクションへ直接URLアクセスした場合は何も描画しない（タブ自体もそのセクションを表示しないため通常は到達しない防御的処理）。
+- `ShareTabs.tsx`：社内の`ProjectTabs.tsx`と同じ見た目・実装パターンのタブナビゲーション。`include_sections`でtrueのものだけを表示する。
+- `lib/share/getShareLinkStatus.ts`：トークンの検証（存在確認・失効・期限切れ判定）を共通化するヘルパー。layoutと各セクションページの両方から呼ばれる（各ページも独立してリンクの有効性・該当セクションの包含有無を再チェックする防御的設計）。
+- **実装上の制約**：Next.jsのlayout.tsxは`searchParams`を受け取れない仕様のため、パスワード誤り時のエラー表示（`?error=1`）は`PasswordErrorNotice.tsx`というClient Component（`useSearchParams`使用、`Suspense`でラップ）に切り出した。
+- 実ブラウザでの動作確認はこの構成変更後、ユーザー本人にお願いする。
 
 ### 次回セッションの開始点
 

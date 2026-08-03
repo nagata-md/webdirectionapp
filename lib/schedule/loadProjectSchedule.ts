@@ -1,4 +1,5 @@
 import "server-only";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { computeSchedule } from "./computeSchedule";
 import type {
@@ -22,8 +23,13 @@ export type ProjectScheduleData = {
 
 // プロジェクトのスケジュール計算に必要な入力を取得し、computeSchedule()を実行する。
 // 計算結果はDBに保存しない（都度計算、spec §6の設計方針）。
-export async function loadProjectSchedule(projectId: string): Promise<ProjectScheduleData> {
-  const supabase = await createClient();
+// supabaseClientを渡すと通常のRLSクライアントの代わりに使う（共有閲覧share_viewでの
+// Service Roleクライアント利用のため、spec §4.10）。
+export async function loadProjectSchedule(
+  projectId: string,
+  supabaseClient?: SupabaseClient,
+): Promise<ProjectScheduleData> {
+  const supabase = supabaseClient ?? (await createClient());
 
   const [{ data: project }, { data: pagesRaw }, { data: groupsRaw }, { data: masterRaw }] =
     await Promise.all([

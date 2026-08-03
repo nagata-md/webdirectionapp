@@ -22,6 +22,39 @@ function num(formData: FormData, key: string): number {
   return Number.isFinite(value) ? value : 0;
 }
 
+export type LiveShareImpact = { projectId: string; projectName: string };
+
+// マスタの単価・工数・ディレクション費・税率を変更する前に、見積もりセクションを含む
+// 有効なライブ共有リンクへの影響を警告するためのチェック（spec §4.10）。
+// estimateVersionモードのリンクは凍結データを表示するため対象外。
+export async function checkLiveShareImpact(): Promise<LiveShareImpact[]> {
+  const supabase = await createClient();
+  const nowIso = new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from("share_links")
+    .select("include_sections, project_id, projects(project_name)")
+    .eq("mode", "live")
+    .eq("revoked", false)
+    .or(`expires_at.is.null,expires_at.gt.${nowIso}`);
+
+  if (error) throw new Error(error.message);
+
+  const impacted = (data ?? []).filter(
+    (row) => (row.include_sections as { estimate?: boolean } | null)?.estimate === true,
+  );
+
+  const seen = new Set<string>();
+  const result: LiveShareImpact[] = [];
+  for (const row of impacted) {
+    const project = row.projects as unknown as { project_name: string } | null;
+    if (!project || seen.has(row.project_id)) continue;
+    seen.add(row.project_id);
+    result.push({ projectId: row.project_id, projectName: project.project_name });
+  }
+  return result;
+}
+
 export async function saveScheduleMaster(formData: FormData) {
   const supabase = await createClient();
   const id = await getMasterId(supabase);

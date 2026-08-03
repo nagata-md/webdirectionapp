@@ -151,15 +151,34 @@ Phase 0・Phase 1に着手し、以下まで完了。
   3. 納品予定日の下に、スケジュール計算（`loadProjectSchedule`）から得た「計算上の公開予定日」を参考表示として追加。**設計判断**：自動上書きにはせず、あくまで参考表示に留め、納品予定日・進捗ステータス自体は引き続き手動入力・保存とする方針をユーザーに確認して採用（クライアントに約束した納期や実態の進捗が、内部スケジュール計算と必ずしも一致しないため）。
 - 実データ・実ブラウザで、実際のClaude APIキーを使ったAI一括生成（指示文の内容が反映された自然な日本語のTITLE/ディスクリプション/キーワードが生成されること）、未入力のみ／全ページの切替、テーブルでの手動編集・保存、生成ログの記録を確認済み。
 
+**2026-08-03 追記：Phase 11（外部共有機能）完了**
+
+- マイグレーション`20260803060000_share_links_creator_email.sql`：`share_links.created_by_email`を追加（`schedule_overrides.edited_by_email`／`estimate_versions.created_by_email`と同じ方針）。
+- `lib/share/token.ts`：`crypto.randomBytes(24).toString("base64url")`で推測不可能な共有トークンを生成。
+- `lib/share/password.ts`：共有リンクの任意パスワードをNode組み込みの`scrypt`（salt付き、`timingSafeEqual`で比較）でハッシュ化。外部ライブラリ非依存。Vitestで4件のユニットテストを作成。
+- `lib/share/passwordCookie.ts`：パスワード照合済みを示すCookieの値を`MASTER_ENCRYPTION_KEY`によるHMAC-SHA256で計算する方式（トークンごとに一意、クライアントが偽造不可）。照合成功時に`httpOnly`・`path`をトークン単位にスコープしたCookieをServer Actionから発行する。
+- `lib/share/expiry.ts`：有効期限切れ判定。`Date.now()`をコンポーネントのレンダー内で直接呼ぶと`react-hooks/purity`のESLintルールに抵触するため、判定ロジックを独立ヘルパーに切り出した（Vitestで3件テスト）。
+- `lib/schedule/loadProjectSchedule.ts`・`lib/estimate/loadProjectEstimate.ts`：第2引数で任意のSupabaseクライアントを受け取れるように変更（省略時は従来通りRLSクライアント）。共有閲覧画面からService Roleクライアントを渡して同じ計算ロジックを再利用するため。
+- `app/(app)/projects/[projectId]/shares/`：共有リンクの発行・一覧・失効を行う社内向け管理画面。`ShareCreateForm.tsx`（公開セクションのチェックボックス、見積もりを含む場合のみ表示モード選択、発行済みバージョンが0件なら`estimateVersion`を選択不可＋案内）、`CopyLinkButton.tsx`（クリップボードコピー）、`actions.ts`（`createShareLink`／`revokeShareLink`）。一覧では有効/失効/期限切れの状態、含まれるセクション、パスワード有無、有効期限、閲覧回数・最終閲覧日時、発行者を表示。
+- `app/(public)/share/[token]/`：外部向け参照専用の共有閲覧画面。`page.tsx`がトークン検証（存在しない／失効／期限切れの分岐）→パスワード照合（設定されている場合のみ、未照合ならフォーム表示）→閲覧記録更新（`view_count`・`last_viewed_at`）→セクション別描画、という順で処理する。すべてService Roleクライアント（`createAdminClient()`）経由でRLSをバイパスし、トークン・パスワードの照合をサーバー側で完結させる（`share_links`テーブルには`authenticated`ロールへのGRANTしかなく、`anon`は一切アクセスできない設計のため必須）。
+  - `ShareDirectoryMapTree.tsx`／`ShareGantt.tsx`／`ShareEstimateTable.tsx`／`ShareMetaTable.tsx`：社内画面の対応コンポーネントから編集操作・変更履歴・優先度・進捗ステータス等の内部運用項目を取り除いた参照専用版（spec §4.10の除外方針）。
+  - `actions.ts`：`verifyShareLinkPassword`（パスワード照合→Cookie発行→リダイレクト。誤りの場合は`?error=1`付きでリダイレクト）。
+- `app/(app)/master/`：`checkLiveShareImpact()`（`actions.ts`）を追加し、単価・工数（`saveScheduleMaster`）とディレクション費・税率（`saveDirectionAndTax`）の保存ボタンを`ImpactAwareSubmitButton.tsx`に置き換えた。クリック時にService Role不要の通常クライアントで「失効・期限切れでなく見積もりセクションを含む有効なライブ共有リンク」の件数・プロジェクト名を取得し、該当があれば`window.confirm()`で警告してから送信する（estimateVersionモードは対象外、spec §4.10）。
+- **設計判断**：spec §4.10の「除外を推奨する内部運用項目」（優先度・並行作業人数設定・休日カレンダー・内部担当者名・進捗ステータス）は、セクション単位のON/OFFとは別に項目ごとのトグルは設けず、含めたセクション内で常に非表示にする固定仕様とした。spec.mdにもその旨を明記済み。
+- spec.md §10のD2（共有URLの有効期限デフォルト値・パスワード必須化の是非）を解決として更新：デフォルト90日（発行時に変更可）、パスワードは任意設定・必須化しない。
+- **テスト**：Service Role経由でテスト用の`share_links`を4パターン（ライブ・全セクション/パスワード付きestimateVersion/失効済み/期限切れ）作成し、`curl`で公開閲覧画面の全分岐（存在しない・失効・期限切れ・パスワード要求・正しいCookieでの閲覧・誤ったCookieでの拒否）と`view_count`/`last_viewed_at`の更新、`checkLiveShareImpact`相当のクエリが失効・期限切れ・estimateVersionモードのリンクを正しく除外することを確認。テストデータは確認後に削除済み。
+- 実ブラウザでのユーザー本人による確認はまだ行っていない（本フェーズ完了時点でdevサーバーは起動済み）。
+
 ### 次回セッションの開始点
 
 1. Supabase Personal Access Tokenが失効済みか確認する。
-2. **Phase 11（外部共有機能）**に進む：共有リンク発行（`live`/`estimateVersion`モード、セクション単位ON/OFF）、`share_view`閲覧画面（パスワード照合・Service Role経由）、マスタ単価変更時の警告ダイアログ、アクセスログ（spec §4.10）。
+2. ユーザー本人による実ブラウザでのPhase 11動作確認待ち（共有リンク発行・パスワード照合・各セクションの表示・マスタ変更時の警告ダイアログ）。問題なければ**Phase 12（仕上げ・受け入れ確認）**に進む：CSV・レスポンシブ・タイムゾーン・セキュリティの最終確認、spec §11の受け入れ基準を通しで確認する。
 3. 動的リスト系の新規UIを作る際は`lib/ui/onEnterKey.ts`（IME対応済み）と`components/ui/SavedBanner.tsx`（保存フィードバック）を最初から使うこと。
 4. 進行グループが2つ以上あるプロジェクトで、構成工程オーバーライド時の「次グループ以降を再計算する／据え置く」の分岐を実際に確認する機会があれば確認しておく（Phase 8からの継続課題）。
 5. ロジック系コード（スケジュール計算・見積もり計算等）はVitestでユニットテストを書く方針を継続する。
 6. PDF等で日本語を扱う新規機能を追加する場合は、`assets/fonts/NotoSansJP-Regular.ttf`（実体は可変フォント）を再利用できる。
 7. マスタ設定のAI連携設定に、モデル名が実在するIDかの簡単なバリデーション（せめてプレースホルダーで正しい例を示す等）を今後検討してもよい。
+8. コンポーネントのレンダー内で`Date.now()`／引数なし`new Date()`を直接呼ぶと`react-hooks/purity`のESLintエラーになる。「現在時刻」が絡む判定は`lib/share/expiry.ts`のように独立したヘルパー関数に切り出すこと。
 
 以降、各フェーズ完了ごとに本セクションへ実績・発見事項・バグ修正を追記していく（`サーバー情報管理アプリ_masterplan.md`と同様の運用）。
 

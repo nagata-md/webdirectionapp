@@ -7,6 +7,7 @@ import { SavedBanner } from "@/components/ui/SavedBanner";
 import { COMPLEXITIES, COST_PHASES, SCHEDULE_PHASES } from "@/lib/master/constants";
 import { getAiKeyStatus, getMasterSettings, getStampSignedUrl } from "@/lib/master/data";
 import { HolidaysEditor } from "./HolidaysEditor";
+import { ImpactAwareSubmitButton } from "./ImpactAwareSubmitButton";
 import {
   saveAiSettings,
   saveDirectionAndTax,
@@ -147,9 +148,7 @@ export default async function MasterPage() {
             </table>
           </div>
 
-          <Button type="submit" variant="primary">
-            保存
-          </Button>
+          <ImpactAwareSubmitButton />
         </form>
       </Panel>
 
@@ -184,9 +183,7 @@ export default async function MasterPage() {
             />
           </FormRow>
           <div className="flex items-end">
-            <Button type="submit" variant="primary">
-              保存
-            </Button>
+            <ImpactAwareSubmitButton />
           </div>
         </form>
       </Panel>

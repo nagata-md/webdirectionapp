@@ -13,6 +13,7 @@ export function ProjectTabs({ projectId }: { projectId: string }) {
     { label: "スケジュール", href: `${base}/schedule` },
     { label: "見積もり", href: `${base}/estimate` },
     { label: "メタ情報", href: `${base}/meta` },
+    { label: "共有リンク", href: `${base}/shares` },
   ];
 
   return (

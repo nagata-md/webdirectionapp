@@ -1,4 +1,5 @@
 import "server-only";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { loadProjectSchedule } from "@/lib/schedule/loadProjectSchedule";
 import { computeEstimate, type EstimateResult } from "./calculate";
@@ -9,8 +10,13 @@ export type ProjectEstimateData = {
   estimate: EstimateResult;
 };
 
-export async function loadProjectEstimate(projectId: string): Promise<ProjectEstimateData> {
-  const supabase = await createClient();
+// supabaseClientを渡すと通常のRLSクライアントの代わりに使う（共有閲覧share_viewでの
+// Service Roleクライアント利用のため、spec §4.10）。
+export async function loadProjectEstimate(
+  projectId: string,
+  supabaseClient?: SupabaseClient,
+): Promise<ProjectEstimateData> {
+  const supabase = supabaseClient ?? (await createClient());
 
   const [{ data: project }, { data: pagesRaw }, { data: lineItemsRaw }, { data: master }, scheduleData] =
     await Promise.all([
@@ -25,7 +31,7 @@ export async function loadProjectEstimate(projectId: string): Promise<ProjectEst
         .eq("project_id", projectId)
         .order("sort_order"),
       supabase.from("master").select("rates, direction_monthly_rate, tax_rate").single(),
-      loadProjectSchedule(projectId),
+      loadProjectSchedule(projectId, supabase),
     ]);
 
   const pages = (pagesRaw ?? []).map((p) => ({

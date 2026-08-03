@@ -42,10 +42,22 @@ Phase 0・Phase 1に着手し、以下まで完了。
 
 ### 次回セッションの開始点
 
-1. **Vercel環境変数の設定**：Vercelプロジェクトの Settings → Environment Variables に `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY`（＝Supabaseのpublishable key） / `SUPABASE_SERVICE_ROLE_KEY`（＝Supabaseのsecret key）を登録し、再デプロイしてVercel上でもログインが通ることを確認する（Phase 0の残タスク、まだ未完了）。
-2. Supabase Personal Access Tokenが失効済みか確認する（未失効なら失効する）。
-3. **Phase 3（認証・セッション管理）**：`marketingdept-llc.com`以外のGoogleアカウントを拒否するドメイン制限を、`app/(app)/layout.tsx`のサーバーサイドチェックとして実装する（現状はTODOコメントのみ）。
-4. その後、Phase 4（マスタ設定画面）・Phase 5（プロジェクト管理）と進む。
+1. ~~Vercel環境変数の設定~~ → 完了（Production環境に`NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY`/`SUPABASE_SERVICE_ROLE_KEY`を登録済み。Preview/Developmentへの追加は現状の運用では不要と判断し保留）。
+2. Supabase Personal Access Tokenの失効：未確認。次回冒頭で確認する。
+3. ~~Phase 3（認証・セッション管理）のドメイン制限~~ → 完了（下記参照）。
+
+**2026-08-03 追記：Phase 3（ドメイン制限）完了**
+
+- `lib/auth/domainGuard.ts`：`requireTeamMember()`を実装。未ログインなら`/login`へ、`marketingdept-llc.com`以外のメールドメインならSupabaseセッションをサインアウトした上で`/login?error=domain`へリダイレクトする。
+- `app/(app)/layout.tsx`のTODOコメントをこの関数呼び出しに置き換え。
+- ログイン画面にエラーバナー表示を追加（`LoginForm.tsx`を分離し`useSearchParams`で`?error=domain`を検知。Next.js推奨に従い`Suspense`でラップ）。
+- **設計判断**：proxy.ts（旧middleware）側にも同じドメインチェックを追加しかけたが、サインアウト時のクッキー引き渡しが複雑になり`requireTeamMember()`とロジックが重複するため撤回。Next.js公式ドキュメントが「Proxyは厳密な認可判定に使うべきではない」としている通り、proxy.tsは「ログイン有無」のみの簡易チェックに留め、ドメイン制限の正式な判定と セッションのサインアウトは`requireTeamMember()`に一本化した。
+- ローカルで`/login?error=domain`のエラーバナー表示、未ログイン時の`/projects`→`/login`リダイレクト（307）を確認済み。**実際の他ドメインGoogleアカウントでのサインアウト動作は未検証**（テスト用の他ドメインアカウントがなかったため）。Phase 4以降の実利用の中で気づいたら報告してほしい。
+
+### 次回セッションの開始点
+
+1. Supabase Personal Access Tokenが失効済みか確認する（未確認のまま）。
+2. **Phase 4（マスタ設定）**に進む：単価・工数・休日カレンダー・AI連携設定・発行元情報のCRUD画面を実装する（spec §4.4）。
 
 以降、各フェーズ完了ごとに本セクションへ実績・発見事項・バグ修正を追記していく（`サーバー情報管理アプリ_masterplan.md`と同様の運用）。
 

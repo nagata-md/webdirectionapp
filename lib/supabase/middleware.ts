@@ -2,8 +2,10 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 // proxy.ts から呼び出す、Supabase認証セッションの更新処理。
-// ここでのログイン判定はあくまで最適化のための簡易チェック（Next.js 16のProxyの制約）であり、
-// ドメイン制限（marketingdept-llc.com）を含む厳密な認可判定はサーバーコンポーネント側で行う（Phase 3）。
+// ここでのログイン判定はあくまで最適化のための簡易チェック（Next.js 16の
+// Proxyは「厳密な認可判定に使うべきではない」とされているため）。
+// ドメイン制限（marketingdept-llc.com）を含む正式な判定は各保護ルートの
+// サーバーコンポーネント（requireTeamMember、lib/auth/domainGuard.ts）で行う。
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 

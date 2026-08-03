@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { requireTeamMember } from "@/lib/auth/domainGuard";
 import { AppShell } from "@/components/layout/AppShell";
 import { Sidebar } from "@/components/layout/Sidebar";
 
@@ -7,14 +7,9 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  // TODO(Phase 3): user.email のドメインが marketingdept-llc.com でなければ拒否する
+  const user = await requireTeamMember();
 
   return (
-    <AppShell sidebar={<Sidebar userEmail={user?.email} />}>{children}</AppShell>
+    <AppShell sidebar={<Sidebar userEmail={user.email} />}>{children}</AppShell>
   );
 }

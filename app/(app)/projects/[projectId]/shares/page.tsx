@@ -1,11 +1,10 @@
 import { headers } from "next/headers";
 import { Panel, SectionLabel } from "@/components/ui/Panel";
-import { Button } from "@/components/ui/Button";
 import { createClient } from "@/lib/supabase/server";
 import { isShareLinkExpired } from "@/lib/share/expiry";
 import { ShareCreateForm } from "./ShareCreateForm";
 import { CopyLinkButton } from "./CopyLinkButton";
-import { revokeShareLink } from "./actions";
+import { RevokeShareLinkForm } from "./RevokeShareLinkForm";
 
 const SECTION_LABELS: Record<string, string> = {
   estimate: "見積もり",
@@ -110,22 +109,7 @@ export default async function SharesPage({
 
                 <div className="mt-2 flex gap-2">
                   <CopyLinkButton url={url} />
-                  {isActive && (
-                    <form
-                      action={revokeShareLink}
-                      onSubmit={(e) => {
-                        if (!confirm("この共有リンクを失効させますか？")) {
-                          e.preventDefault();
-                        }
-                      }}
-                    >
-                      <input type="hidden" name="projectId" value={projectId} readOnly />
-                      <input type="hidden" name="shareId" value={link.id} readOnly />
-                      <Button type="submit" variant="danger">
-                        失効させる
-                      </Button>
-                    </form>
-                  )}
+                  {isActive && <RevokeShareLinkForm projectId={projectId} shareId={link.id} />}
                 </div>
               </div>
             );

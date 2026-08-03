@@ -529,13 +529,29 @@ Phase 11完了後、実画面を見たユーザーから大量の仕上げ要望
 7. ガントチャート強化（カレンダー型グリッド・大きな日付表示）
 8. メタ情報CSV・サイドバーデザイン修正・運用者専用メモ機能
 
+**2026-08-03 追記：Phase 12-1〜12-8（仕上げ工程の追加要望）実装完了**
+
+上記7.1の確定仕様を、依存関係に沿った順（マスタ→スケジュール→ディレクトリマップ→見積もり→共有→一覧→ガント→CSV/デザイン/メモ）で実装した。
+
+- **マイグレーション5本**：`master`にcms_rates/top_rates/mobile_menu_rateを追加、`schedule_overrides.phase_key`のCHECK制約に'CMS構築'を追加（無名制約をpg_constraintから動的に探して付け替え）、`pages`のextra_costを削除しcms_tier/mobile_menu_neededを追加、`projects`にarchived_at/estimate_remarksを追加、`project_memos`テーブルを新設（RLSは`is_team_member()`、GRANTはselect/insert/deleteのみでupdateは付与せずログ形式を徹底）。
+- **スケジュールエンジン**：`SCHEDULE_PHASES`に'CMS構築'を追加（構成→デザイン→コーディング→CMS構築→テストアップ→公開）。`computeSchedule.ts`はcms_tierが未設定のページではこの工程を`continue`でスキップする（readyTimeも進めない）ことで、CMS不要ページのスケジュールに影響を与えない設計にした。TOPページは`master.top_rates`（ratesと同形状の別建てテーブル）を参照するよう`phaseDurationDays`を分岐。
+- **見積もり計算**：`lib/estimate/calculate.ts`（詳細）と`lib/estimate/calculateAggregated.ts`（集計、新規）に分離。両者は同じ入力から計算するため`subtotal`/`total`が必ず一致する设計とし、Vitestで直接その一致を検証するテストを追加した。集計はTOP関連をページ単位で1式個別表示、それ以外はコスト工程×複雑度で集計、CMS構築費は個別行、テストアップ+公開は「テスト検証」1行にまとめて0円なら非表示（画面側で判定）。PDF発行・`estimate_versions`の凍結データは共に集計見積もりを主に使いつつ詳細データも保持する`{ detailed, aggregated, total }`の形に変更した。
+- **既存データとの非互換に関する注意**：Phase 9で発行済みの旧estimate_versionsは`estimate_data`が旧フラット形式（`{pages, total, ...}`）のままのため、共有閲覧画面の見積もりPDF/内訳表示は新形式（`{detailed, aggregated, total}`）を前提とする新コードでは中身が空になる（クラッシュはしない。`total`のみを見る内部の発行済み一覧表示は引き続き動く）。実データでの検証は新規にPDFを再発行してから行うこと。
+- **ディレクトリマップ**：`pages.extra_cost`を廃止し`cms_tier`（なし/S/M/L）ドロップダウンに置き換え。ワイヤー・コピーは必要時も「ワイヤー」「コピー」として常時タグ表示し、CMSタグ・スマホ対応メニュータグを追加（社内`PageRow.tsx`・共有`ShareDirectoryMapTree.tsx`の両方）。新規プロジェクト作成時、`lib/pages/defaultGroups.ts`の7グループ（TOP関連〜概要関連ページ）を自動作成。
+- **一覧・アーカイブ・コピー**：`projects`にフリーワード検索（`ilike`のor条件）・完了プロジェクト表示トグル（`archived_at is null`のデフォルト絞り込み）・担当者表示（ディレクターrole優先、なければ登録順先頭）を追加。プロジェクトコピー(`copyProject`)はowners/links/groups/pagesを複製するが、group_id/parent_idの旧→新ID対応が必要なため一括insertではなく1件ずつinsertしてマッピングを取る設計にした（複数件insertは返却順序が保証されないため）。スケジュールオーバーライド・確定済み見積書・メタ情報・見積もりの追加項目/備考・共有リンク・運用者メモは複製しない。
+- **ガントチャート**：`lib/schedule/dateGrid.ts`（新規、`buildDateGrid()`）で日付を1日ずつ列にしたグリッドを生成する共通ロジックを切り出し、`GanttChart.tsx`（社内、編集可）・`ShareGantt.tsx`（共有、参照専用）の両方から使う。左側の情報列（ページ名・公開予定日・作業日数を大きく表示）を`position: sticky; left: 0`で固定し、日付グリッド部分だけが横スクロールする構成（ヘッダーとバーが同じスクロールコンテナ内にあるため、ずれることなく同期する）。週末・休日は`bg-subtle`で塗る。
+- **CSV/デザイン/メモ**：メタ情報の開発者向けCSV（社内・共有閲覧の両方、共通ヘルパー`lib/csv.ts`）、共有閲覧画面からの見積もりPDFダウンロード（`estimateVersion`モードのみ）を追加。サイドバーのテキストが見えない不具合は、`app/globals.css`の`a { color: navy }`等が`@layer`に属さず、CSS Cascade Layersの仕様上Tailwindの`utilities`レイヤー（`text-white`等）より強くなってしまっていたことが原因と判明。該当ルールを`@layer base`に入れて解消した。ネイビー背景が下まで伸びない件は、`Sidebar.tsx`の`<aside>`要素自体に高さ指定がなかったため`h-full`を追加して解消。運用者専用メモ機能は`project_memos`テーブル・新規`/memo`タブとして実装（ログ形式、追記・削除のみ、共有リンクのセクションには一切含めない設計）。
+- **テスト**：Vitestで新規13件追加（dateGrid 3件、calculate系 追加分、calculateAggregated 5件、CMS工程のcomputeSchedule 1件）、全40件成功。Service Role経由でTOPページ・CMSページ・カスタムマスタレートのテストデータを一時的に作成し、共有閲覧画面の全セクション（基本情報・ディレクトリマップ・スケジュール・見積もり・メタ情報）とCSV/PDFダウンロード導線を`curl`で確認（CMS構築費の個別行金額・TOPページのスマホ対応メニュー加算・カレンダーグリッドの週末表示・タグ表示など）。検証後はテストデータ（ページ・共有リンク・マスタの一時レート）をすべて削除・原状復帰済み。
+- 実ブラウザでのユーザー本人による確認はまだ行っていない。
+
 ### 次回セッションの開始点
 
 1. Supabase Personal Access Tokenが失効済みか確認する。
-2. 上記実装順の**1. マスタ設定拡張**から着手する。CMS構築費・TOP専用レート表は新しいjsonbキー追加が中心（マイグレーション要）。進行グループデフォルトテンプレートは固定リストとして実装するかマスタ管理下に置くか、着手時に実装しやすい方を選んでよい（ユーザーは「マスタ管理でもいい」と許容している）。
-3. CMS構築をスケジュール工程に追加する際は、`lib/master/constants.ts`の`SCHEDULE_PHASES`・`schedule_overrides.phase_key`のCHECK制約・`lib/schedule/`配下のロジック・`GanttChart.tsx`／`ShareGantt.tsx`／`PhaseEditForm.tsx`など、5工程决め打ちの箇所を漏れなく洗い出すこと。
-4. 見積もりの集計ロジックは新規モジュール（例：`lib/estimate/calculateAggregated.ts`）として切り出し、既存の詳細計算（`lib/estimate/calculate.ts`）とは別関数にする方が影響範囲を抑えられる。
-5. ガントチャートのカレンダー型グリッドは既存の`GanttChart.tsx`／`ShareGantt.tsx`の両方に影響するため、共通の日付グリッド生成ロジックを`lib/schedule/`に切り出して両方から使うこと。
-6. 運用者専用メモ機能は他の要望と依存関係がないため、隙間時間に独立して実装してよい。
+2. ユーザー本人による実ブラウザでのPhase 12全体の動作確認待ち。特に、マスタ設定画面（CMS構築費・TOP専用レート・スマホ対応メニュー単価の入力）、ディレクトリマップ（CMSドロップダウン・タグ表示）、スケジュール（カレンダー型ガント・公開予定日/作業日数の大きな表示・CMS構築の色帯）、見積もり（詳細/集計タブの切り替え・PDF発行）、一覧（検索・完了トグル・コピー）、メモタブ、サイドバーの見た目、を重点的に見てもらう。
+3. 見積もりPDF・共有リンクのestimateVersionモードは、Phase 9時代の旧形式estimate_versionsでは内訳が空になる（上記参照）。ユーザーが実データで確認する際は、新規にPDFを発行し直したものでテストするよう案内すること。
+4. 問題なければ、spec §11の受け入れ基準を通しで確認し、Phase 12（仕上げ・受け入れ確認）を完了とする。
+5. 進行グループが2つ以上あるプロジェクトで、構成工程オーバーライド時の「次グループ以降を再計算する／据え置く」の分岐を実際に確認する機会があれば確認しておく（Phase 8からの継続課題、未解消）。
+6. コンポーネントのレンダー内で`Date.now()`／引数なし`new Date()`を直接呼ぶと`react-hooks/purity`のESLintエラーになる。「現在時刻」が絡む判定は独立したヘルパー関数に切り出すこと（`lib/share/expiry.ts`が実例）。
+7. Server ComponentのJSXに`onSubmit`/`onClick`等のイベントハンドラを直接書くと「Event handlers cannot be passed to Client Component props」エラーになる。確認ダイアログ等が必要な場合は、そのフォームだけを`"use client"`の小さなコンポーネントに切り出すこと（`RevokeShareLinkForm.tsx`・`ArchiveProjectForm.tsx`・`DeleteMemoForm.tsx`が実例）。
 
 > 次アクション候補：①Phase 0（Next.js/Supabaseプロジェクト作成） → ②`supabase/migrations/`の作成（Phase 2） → ③Google OAuth疎通確認（Phase 3）。

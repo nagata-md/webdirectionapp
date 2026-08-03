@@ -44,6 +44,9 @@ export default async function SchedulePage({
           projectId={projectId}
           pages={pages ?? []}
           pageSchedules={scheduleData.schedule?.pages ?? []}
+          projectStartDate={scheduleData.projectStartDate}
+          weeklyOff={scheduleData.master.weeklyOff}
+          holidays={scheduleData.master.holidays}
         />
       </Panel>
 

@@ -63,6 +63,161 @@ export async function deleteProject(formData: FormData) {
   redirect("/projects?saved=1");
 }
 
+export async function archiveProject(formData: FormData) {
+  const projectId = String(formData.get("projectId") ?? "");
+  if (!projectId) throw new Error("プロジェクトIDが指定されていません");
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("projects")
+    .update({ archived_at: new Date().toISOString() })
+    .eq("id", projectId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/projects");
+  redirect(`/projects/${projectId}?saved=1`);
+}
+
+export async function unarchiveProject(formData: FormData) {
+  const projectId = String(formData.get("projectId") ?? "");
+  if (!projectId) throw new Error("プロジェクトIDが指定されていません");
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("projects")
+    .update({ archived_at: null })
+    .eq("id", projectId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/projects");
+  redirect(`/projects/${projectId}?saved=1`);
+}
+
+// プロジェクトの複製（Phase 12、新規要件）。ディレクトリマップ（ページ・進行グループ）・
+// 自社担当者・サーバー情報リンク/Figmaリンクは複製するが、スケジュールの手動オーバーライド・
+// 確定済み見積書・メタ情報（slug/title/description/keywords/due_date/status）・見積もりの
+// 追加項目/備考・共有リンクは複製しない。
+export async function copyProject(formData: FormData) {
+  const sourceProjectId = String(formData.get("projectId") ?? "");
+  if (!sourceProjectId) throw new Error("プロジェクトIDが指定されていません");
+
+  const supabase = await createClient();
+
+  const { data: source, error: sourceError } = await supabase
+    .from("projects")
+    .select("project_name, client_name, start_date, parallel_by_phase")
+    .eq("id", sourceProjectId)
+    .single();
+  if (sourceError || !source) {
+    throw new Error(sourceError?.message ?? "コピー元のプロジェクトが見つかりません");
+  }
+
+  const { data: newProject, error: insertError } = await supabase
+    .from("projects")
+    .insert({
+      project_name: `${source.project_name}のコピー`,
+      client_name: source.client_name,
+      start_date: source.start_date,
+      parallel_by_phase: source.parallel_by_phase,
+    })
+    .select("id")
+    .single();
+  if (insertError || !newProject) {
+    throw new Error(insertError?.message ?? "プロジェクトの複製に失敗しました");
+  }
+  const newProjectId = newProject.id as string;
+
+  const [{ data: owners }, { data: links }, { data: groups }, { data: pages }] = await Promise.all([
+    supabase.from("project_owners").select("role, name").eq("project_id", sourceProjectId),
+    supabase
+      .from("project_links")
+      .select("category, label, url, sort_order")
+      .eq("project_id", sourceProjectId),
+    supabase
+      .from("progress_groups")
+      .select("id, name, sort_order")
+      .eq("project_id", sourceProjectId)
+      .order("sort_order"),
+    supabase
+      .from("pages")
+      .select(
+        "id, name, type, complexity, parent_id, wire_needed, copy_needed, cms_tier, mobile_menu_needed, group_id, priority",
+      )
+      .eq("project_id", sourceProjectId),
+  ]);
+
+  if (owners && owners.length > 0) {
+    const { error } = await supabase
+      .from("project_owners")
+      .insert(owners.map((o) => ({ project_id: newProjectId, role: o.role, name: o.name })));
+    if (error) throw new Error(error.message);
+  }
+
+  if (links && links.length > 0) {
+    const { error } = await supabase.from("project_links").insert(
+      links.map((l) => ({
+        project_id: newProjectId,
+        category: l.category,
+        label: l.label,
+        url: l.url,
+        sort_order: l.sort_order,
+      })),
+    );
+    if (error) throw new Error(error.message);
+  }
+
+  // 進行グループ・ページはparent_id/group_idの旧→新ID対応が必要なため、
+  // 1件ずつ挿入してIDマッピングを確実に取る（複数件一括insertは返却順序が保証されないため）。
+  const groupIdMap = new Map<string, string>();
+  for (const g of groups ?? []) {
+    const { data: newGroup, error } = await supabase
+      .from("progress_groups")
+      .insert({ project_id: newProjectId, name: g.name, sort_order: g.sort_order })
+      .select("id")
+      .single();
+    if (error || !newGroup) throw new Error(error?.message ?? "進行グループの複製に失敗しました");
+    groupIdMap.set(g.id, newGroup.id as string);
+  }
+
+  const pageIdMap = new Map<string, string>();
+  for (const p of pages ?? []) {
+    const { data: newPage, error } = await supabase
+      .from("pages")
+      .insert({
+        project_id: newProjectId,
+        name: p.name,
+        type: p.type,
+        complexity: p.complexity,
+        parent_id: null,
+        wire_needed: p.wire_needed,
+        copy_needed: p.copy_needed,
+        cms_tier: p.cms_tier,
+        mobile_menu_needed: p.mobile_menu_needed,
+        group_id: p.group_id ? (groupIdMap.get(p.group_id) ?? null) : null,
+        priority: p.priority,
+      })
+      .select("id")
+      .single();
+    if (error || !newPage) throw new Error(error?.message ?? "ページの複製に失敗しました");
+    pageIdMap.set(p.id, newPage.id as string);
+  }
+
+  for (const p of pages ?? []) {
+    if (!p.parent_id) continue;
+    const newPageId = pageIdMap.get(p.id);
+    const newParentId = pageIdMap.get(p.parent_id);
+    if (!newPageId || !newParentId) continue;
+    const { error } = await supabase
+      .from("pages")
+      .update({ parent_id: newParentId })
+      .eq("id", newPageId);
+    if (error) throw new Error(error.message);
+  }
+
+  revalidatePath("/projects");
+  redirect(`/projects/${newProjectId}`);
+}
+
 export async function updateProjectBasicInfo(formData: FormData) {
   const projectId = String(formData.get("projectId") ?? "");
   const projectName = String(formData.get("projectName") ?? "").trim();

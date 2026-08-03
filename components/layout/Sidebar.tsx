@@ -4,7 +4,7 @@ const navItems = [{ label: "プロジェクト", href: "/projects" }, { label: "
 
 export function Sidebar({ userEmail }: { userEmail?: string }) {
   return (
-    <aside className="flex w-60 shrink-0 flex-col bg-navy p-6 text-white md:p-6">
+    <aside className="flex h-full w-60 shrink-0 flex-col bg-navy p-6 text-white md:p-6">
       <div className="mb-6">
         <div className="font-label text-lg font-bold tracking-[0.06em] text-white">
           制作進行オートメーター

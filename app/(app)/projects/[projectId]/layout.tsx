@@ -17,7 +17,7 @@ export default async function ProjectLayout({
 
   const { data: project, error } = await supabase
     .from("projects")
-    .select("id, project_name")
+    .select("id, project_name, client_name")
     .eq("id", projectId)
     .single();
 
@@ -28,6 +28,9 @@ export default async function ProjectLayout({
   return (
     <div>
       <PageHeader title={project.project_name} eyebrow="PROJECT" />
+      {project.client_name && (
+        <p className="-mt-3 mb-4 text-[13px] text-subtle">{project.client_name} 様</p>
+      )}
       <ProjectTabs projectId={project.id} />
       <Suspense fallback={null}>
         <SavedBanner />

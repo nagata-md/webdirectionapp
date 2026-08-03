@@ -1,4 +1,5 @@
 import { Panel, SectionLabel } from "@/components/ui/Panel";
+import { LinkButton } from "@/components/ui/Button";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getShareLinkStatus } from "@/lib/share/getShareLinkStatus";
 import { ShareMetaTable } from "../ShareMetaTable";
@@ -20,7 +21,10 @@ export default async function ShareMetaPage({
 
   return (
     <Panel>
-      <SectionLabel>ページ情報</SectionLabel>
+      <div className="mb-3.5 flex flex-wrap items-center justify-between gap-2">
+        <SectionLabel>ページ情報</SectionLabel>
+        <LinkButton href={`/share/${token}/meta/csv`}>開発者向けCSVダウンロード</LinkButton>
+      </div>
       <ShareMetaTable pages={pagesRaw ?? []} />
     </Panel>
   );

@@ -22,7 +22,13 @@ export default async function ShareSchedulePage({
   return (
     <Panel>
       <SectionLabel>スケジュール</SectionLabel>
-      <ShareGantt pages={pagesRaw ?? []} pageSchedules={scheduleData.schedule?.pages ?? []} />
+      <ShareGantt
+        pages={pagesRaw ?? []}
+        pageSchedules={scheduleData.schedule?.pages ?? []}
+        projectStartDate={scheduleData.projectStartDate}
+        weeklyOff={scheduleData.master.weeklyOff}
+        holidays={scheduleData.master.holidays}
+      />
     </Panel>
   );
 }

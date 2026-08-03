@@ -10,6 +10,7 @@ type SharePageNode = {
   wire_needed: boolean;
   copy_needed: boolean;
   cms_tier: string | null;
+  mobile_menu_needed: boolean;
   priority: number;
 };
 
@@ -36,6 +37,7 @@ function ShareDirectoryMapRow({
         <Tag>{page.wire_needed ? "ワイヤー" : "ワイヤー不要"}</Tag>
         <Tag>{page.copy_needed ? "コピー" : "コピー不要"}</Tag>
         {page.cms_tier && <Tag>{cmsTierLabel(page.cms_tier)}</Tag>}
+        {page.mobile_menu_needed && <Tag>スマホ対応メニュー</Tag>}
       </div>
       {children.map((child) => (
         <ShareDirectoryMapRow key={child.id} page={child} depth={depth + 1} allPages={allPages} />

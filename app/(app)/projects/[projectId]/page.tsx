@@ -3,9 +3,10 @@ import { Panel, SectionLabel } from "@/components/ui/Panel";
 import { FormRow } from "@/components/ui/FormRow";
 import { Button } from "@/components/ui/Button";
 import { createClient } from "@/lib/supabase/server";
-import { updateProjectBasicInfo } from "../actions";
+import { unarchiveProject, updateProjectBasicInfo } from "../actions";
 import { OwnersEditor } from "./OwnersEditor";
 import { ProjectLinksEditor } from "./ProjectLinksEditor";
+import { ArchiveProjectForm } from "./ArchiveProjectForm";
 
 export default async function ProjectDetailPage({
   params,
@@ -17,7 +18,7 @@ export default async function ProjectDetailPage({
 
   const { data: project, error } = await supabase
     .from("projects")
-    .select("id, client_name, project_name, start_date")
+    .select("id, client_name, project_name, start_date, archived_at")
     .eq("id", projectId)
     .single();
 
@@ -43,7 +44,17 @@ export default async function ProjectDetailPage({
   return (
     <div>
       <Panel className="mb-4">
-        <SectionLabel>基本情報</SectionLabel>
+        <div className="mb-3.5 flex flex-wrap items-center justify-between gap-2">
+          <SectionLabel>基本情報</SectionLabel>
+          {project.archived_at ? (
+            <form action={unarchiveProject}>
+              <input type="hidden" name="projectId" value={project.id} readOnly />
+              <Button type="submit">完了を取り消す</Button>
+            </form>
+          ) : (
+            <ArchiveProjectForm projectId={project.id} />
+          )}
+        </div>
         <form action={updateProjectBasicInfo}>
           <input type="hidden" name="projectId" value={project.id} readOnly />
           <div className="grid grid-cols-1 gap-x-6 md:grid-cols-3">

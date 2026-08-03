@@ -40,27 +40,36 @@
   --font-label: var(--font-archivo), sans-serif;
 }
 
-body {
-  background: var(--color-surface);
-  color: var(--color-ink);
-  font-family: var(--font-sans);
-  font-size: 13px;
-  line-height: 1.5;
-}
+/*
+ * @layer baseに入れることで、Tailwindのutilitiesレイヤー（text-white等）が
+ * 常にこれらの要素セレクタより優先されるようにする（CSS Cascade Layersの仕様上、
+ * レイヤーに属さないスタイルは詳細度に関係なくレイヤー内のスタイルより強くなってしまうため、
+ * ここでレイヤーに入れないとサイドバーのリンク文字がtext-white指定でも
+ * このa{color:navy}に負けて見えなくなる、という不具合の原因になっていた）。
+ */
+@layer base {
+  body {
+    background: var(--color-surface);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    line-height: 1.5;
+  }
 
-h1,
-h2,
-h3 {
-  margin: 0;
-  font-weight: 700;
-  color: var(--color-navy);
-}
+  h1,
+  h2,
+  h3 {
+    margin: 0;
+    font-weight: 700;
+    color: var(--color-navy);
+  }
 
-a {
-  color: var(--color-navy);
-  text-decoration: none;
-}
+  a {
+    color: var(--color-navy);
+    text-decoration: none;
+  }
 
-a:hover {
-  text-decoration: underline;
+  a:hover {
+    text-decoration: underline;
+  }
 }

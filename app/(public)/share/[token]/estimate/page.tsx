@@ -1,4 +1,5 @@
 import { Panel, SectionLabel } from "@/components/ui/Panel";
+import { LinkButton } from "@/components/ui/Button";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getShareLinkStatus } from "@/lib/share/getShareLinkStatus";
 import { loadProjectEstimate } from "@/lib/estimate/loadProjectEstimate";
@@ -19,11 +20,12 @@ export default async function ShareEstimatePage({
 
   let estimate: EstimateResult | null = null;
   let versionLabel: string | null = null;
+  let pdfSignedUrl: string | null = null;
 
   if (link.mode === "estimateVersion" && link.estimateVersionId) {
     const { data: version } = await admin
       .from("estimate_versions")
-      .select("quote_number, issued_at, valid_until, estimate_data")
+      .select("quote_number, issued_at, valid_until, estimate_data, pdf_url")
       .eq("id", link.estimateVersionId)
       .maybeSingle();
     if (version) {
@@ -32,6 +34,15 @@ export default async function ShareEstimatePage({
       const snapshot = version.estimate_data as { detailed: EstimateResult };
       estimate = snapshot.detailed;
       versionLabel = `${version.quote_number}（${String(version.issued_at).slice(0, 10)}発行・有効期限${version.valid_until}）`;
+
+      // 見積もりPDFのダウンロードはestimateVersionモード（発行済みPDFがある場合）のみ提供する。
+      // liveモードは都度生成の仕組みがないため対象外（Phase 12、spec §4.11の仕様変更）。
+      if (version.pdf_url) {
+        const { data: signed } = await admin.storage
+          .from("estimate-pdfs")
+          .createSignedUrl(version.pdf_url, 60 * 10);
+        pdfSignedUrl = signed?.signedUrl ?? null;
+      }
     }
   } else {
     const loaded = await loadProjectEstimate(link.projectId, admin);
@@ -45,6 +56,13 @@ export default async function ShareEstimatePage({
       <SectionLabel>見積もり</SectionLabel>
       {versionLabel && <p className="mb-3 text-[12px] text-subtle">見積書番号: {versionLabel}</p>}
       <ShareEstimateTable estimate={estimate} />
+      {pdfSignedUrl && (
+        <div className="mt-4">
+          <LinkButton href={pdfSignedUrl} target="_blank" rel="noopener noreferrer" variant="primary">
+            見積書PDFをダウンロード
+          </LinkButton>
+        </div>
+      )}
     </Panel>
   );
 }

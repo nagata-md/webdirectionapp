@@ -1,5 +1,5 @@
 import { Panel, SectionLabel } from "@/components/ui/Panel";
-import { Button } from "@/components/ui/Button";
+import { Button, LinkButton } from "@/components/ui/Button";
 import { createClient } from "@/lib/supabase/server";
 import { PAGE_STATUSES } from "@/lib/pages/constants";
 import { loadProjectSchedule } from "@/lib/schedule/loadProjectSchedule";
@@ -48,7 +48,12 @@ export default async function MetaPage({
       </Panel>
 
       <Panel>
-        <SectionLabel>メタ情報・進行管理</SectionLabel>
+        <div className="mb-3.5 flex flex-wrap items-center justify-between gap-2">
+          <SectionLabel>メタ情報・進行管理</SectionLabel>
+          <LinkButton href={`/projects/${projectId}/meta/csv`}>
+            開発者向けCSVエクスポート
+          </LinkButton>
+        </div>
         {(pages ?? []).length === 0 && (
           <p className="text-[13px] text-subtle">ページが登録されていません</p>
         )}

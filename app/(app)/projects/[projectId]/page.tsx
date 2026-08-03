@@ -1,10 +1,7 @@
-import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { PageHeader } from "@/components/layout/PageHeader";
 import { Panel, SectionLabel } from "@/components/ui/Panel";
 import { FormRow } from "@/components/ui/FormRow";
 import { Button } from "@/components/ui/Button";
-import { SavedBanner } from "@/components/ui/SavedBanner";
 import { createClient } from "@/lib/supabase/server";
 import { updateProjectBasicInfo } from "../actions";
 import { OwnersEditor } from "./OwnersEditor";
@@ -45,11 +42,6 @@ export default async function ProjectDetailPage({
 
   return (
     <div>
-      <PageHeader title={project.project_name} eyebrow="PROJECT" />
-      <Suspense fallback={null}>
-        <SavedBanner />
-      </Suspense>
-
       <Panel className="mb-4">
         <SectionLabel>基本情報</SectionLabel>
         <form action={updateProjectBasicInfo}>

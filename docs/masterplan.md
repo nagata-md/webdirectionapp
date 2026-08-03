@@ -76,11 +76,22 @@ Phase 0・Phase 1に着手し、以下まで完了。
 - **UX改善（ユーザー要望、Phase 4にも遡って適用）**：保存の成否が画面上わかりにくいという指摘を受け、`components/ui/SavedBanner.tsx`を新設。保存系Server Actionはすべて処理後に`redirect("<path>?saved=1")`する方式に統一し、バナーが「✓ 保存しました」を数秒表示してからURLの`?saved=1`を消す。Phase 4（マスタ設定）の5アクションもこの方式に統一済み。
 - 実データで最終確認：プロジェクト2件、自社担当者4件、サーバー/Figmaリンク各1件が正しく保存されていることをサービスロール経由で確認。
 
+**2026-08-03 追記：Phase 6（ディレクトリマップ・進行グループ管理）完了**
+
+- プロジェクト詳細画面をタブ構成に変更：`components/layout/ProjectTabs.tsx`（`usePathname`でアクティブタブ判定）＋`app/(app)/projects/[projectId]/layout.tsx`（プロジェクト名のPageHeader・タブ・SavedBannerを共通化。既存の基本情報`page.tsx`からは重複していたPageHeader/SavedBannerを削除）。今後スケジュール／見積もり／メタ情報／共有リンクのタブもここに追加していく。
+- `lib/pages/constants.ts`：ページ種別（TOP/下層/LP/ブログ/その他）の表示ラベル変換、`isDescendant()`（親ページ選択時の循環参照防止：自分自身・自分の子孫を親にできないようチェック）。
+- `app/(app)/projects/[projectId]/directory-map/`：`actions.ts`（`createPage`/`updatePage`/`deletePage`/`saveGroups`）、`GroupsEditor.tsx`（進行グループの追加・削除・↑↓並び替え）、`PageForm.tsx`（新規ページ追加）、`PageRow.tsx`（表示⇄インライン編集切り替え、子ページを再帰的にレンダリング）、`page.tsx`。
+- **設計判断**：進行グループは`pages.group_id`から参照されるFKのため、`saveOwners`/`saveProjectLinks`のような「全削除→再作成」方式は使えない（IDが変わり紐付けが壊れる）。`saveGroups`は既存IDの有無で更新/新規作成を振り分け、送信されなかった既存IDのみ削除するdiff方式にした。
+- ページの親削除時は`ON DELETE SET NULL`（migration側で設定済み）により子ページは消えず、親なし＝トップレベル扱いになる（削除しても子を巻き込まない設計を実データで確認）。
+- 実ブラウザでの動作確認済み（ユーザー本人）：進行グループの追加・並び替え・保存後の保持、ページ追加・親子階層のツリー表示、編集での進行グループ割当・バッジ反映、削除確認ダイアログ、親削除時に子がトップレベルに残ることを確認。
+- Enterキー誤送信対策（`onEnterKey`）・保存フィードバック（`SavedBanner`）を新規コンポーネント（`GroupsEditor`）にも最初から適用。
+
 ### 次回セッションの開始点
 
 1. Supabase Personal Access Tokenが失効済みか確認する（未確認のまま）。
-2. **Phase 6（ディレクトリマップ・進行グループ管理）**に進む：ページCRUD・親子階層のツリー表示・進行グループ設定（spec §4.2・4.3）。
-3. 今後、動的リスト系の新規UIを作る際は`lib/ui/onEnterKey.ts`（IME対応済み）と`components/ui/SavedBanner.tsx`（保存フィードバック）を最初から使うこと。
+2. **Phase 7（スケジュール自動生成ロジック・コアエンジン）**に進む：営業日計算（JST）・進行グループ逐次起点計算・工程別レーン割当ロジック（spec §4.3・4.5・4.6、本アプリの中核かつ最複雑）。着手前にspec該当箇所を読み合わせること（masterplan §6参照）。
+3. 動的リスト系の新規UIを作る際は`lib/ui/onEnterKey.ts`（IME対応済み）と`components/ui/SavedBanner.tsx`（保存フィードバック）を最初から使うこと。
+4. 進行グループのように他テーブルからFK参照される可能性がある一覧編集を作る際は、`saveGroups`のdiff方式（全削除→再作成にしない）を踏襲すること。
 
 以降、各フェーズ完了ごとに本セクションへ実績・発見事項・バグ修正を追記していく（`サーバー情報管理アプリ_masterplan.md`と同様の運用）。
 

@@ -139,4 +139,35 @@ describe("computeAggregatedEstimate", () => {
     const expected = (8000 + 5000) * 3 + (12000 + 8000);
     expect(aggregated.testVerificationTotal).toBe(expected);
   });
+
+  it("designNeeded=false/codingNeeded=falseのページは集計の該当行から除外される", () => {
+    const pagesWithSkips: EstimatePageInput[] = [
+      ...pages,
+      {
+        id: "p4",
+        name: "デザインなしページ",
+        type: "lower",
+        complexity: "M",
+        wireNeeded: true,
+        copyNeeded: true,
+        designNeeded: false,
+        cmsTier: null,
+        mobileMenuNeeded: false,
+      },
+    ];
+    const input = { ...sharedInput, pages: pagesWithSkips };
+    const detailed = computeEstimate(input);
+    const aggregated = computeAggregatedEstimate(input);
+
+    // 詳細・集計の合計は引き続き一致する
+    expect(aggregated.subtotal).toBe(detailed.subtotal);
+
+    // デザイン（M）の集計行の数量は、デザインなしページを含めた3ページ分ではなく
+    // 既存の2ページ分のまま（p4はデザイン不要のためカウントされない）
+    const designM = aggregated.tallyLines.find((l) => l.label === "デザイン（M）");
+    expect(designM).toMatchObject({ quantity: 2 });
+    // 一方コーディング（M）は3ページ分に増える
+    const codingM = aggregated.tallyLines.find((l) => l.label === "コーディング（M）");
+    expect(codingM).toMatchObject({ quantity: 3 });
+  });
 });

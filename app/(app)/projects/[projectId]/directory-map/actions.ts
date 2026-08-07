@@ -1,13 +1,10 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { isDescendant } from "@/lib/pages/constants";
-
-function num(formData: FormData, key: string): number {
-  const value = Number(formData.get(key));
-  return Number.isFinite(value) ? value : 0;
-}
+import { reorderSiblingPriorities } from "@/lib/pages/reorder";
 
 function nullableId(formData: FormData, key: string): string | null {
   const value = String(formData.get(key) ?? "").trim();
@@ -25,19 +22,36 @@ export async function createPage(formData: FormData) {
   if (!projectId) throw new Error("プロジェクトIDが指定されていません");
   if (!name) throw new Error("ページ名は必須です");
 
+  const parentId = nullableId(formData, "parentId");
+
   const supabase = await createClient();
+
+  // 新規ページのpriorityは常に「同じ親を持つ兄弟の末尾」に自動採番する（2026-08-07修正）。
+  // 進行グループはスケジュールの起点を揃えるための分類であり表示順とは無関係なため
+  // （2026-08-07ユーザー確定方針）、ここでは親（parent_id）のみでスコープする。
+  let siblingsQuery = supabase.from("pages").select("priority").eq("project_id", projectId);
+  siblingsQuery = parentId
+    ? siblingsQuery.eq("parent_id", parentId)
+    : siblingsQuery.is("parent_id", null);
+  const { data: siblings, error: siblingsError } = await siblingsQuery;
+  if (siblingsError) throw new Error(siblingsError.message);
+
+  const nextPriority = (siblings ?? []).reduce((max, s) => Math.max(max, s.priority), 0) + 1;
+
   const { error } = await supabase.from("pages").insert({
     project_id: projectId,
     name,
     type: String(formData.get("type") ?? "other"),
     complexity: String(formData.get("complexity") ?? "M"),
-    parent_id: nullableId(formData, "parentId"),
+    parent_id: parentId,
     wire_needed: formData.get("wireNeeded") === "on",
     copy_needed: formData.get("copyNeeded") === "on",
+    design_needed: formData.get("designSkip") !== "on",
+    coding_needed: formData.get("codingSkip") !== "on",
     cms_tier: nullableCmsTier(formData),
     mobile_menu_needed: formData.get("mobileMenuNeeded") === "on",
     group_id: nullableId(formData, "groupId"),
-    priority: num(formData, "priority"),
+    priority: nextPriority,
   });
 
   if (error) throw new Error(error.message);
@@ -78,10 +92,13 @@ export async function updatePage(formData: FormData) {
       parent_id: parentId,
       wire_needed: formData.get("wireNeeded") === "on",
       copy_needed: formData.get("copyNeeded") === "on",
+      design_needed: formData.get("designSkip") !== "on",
+      coding_needed: formData.get("codingSkip") !== "on",
       cms_tier: nullableCmsTier(formData),
       mobile_menu_needed: formData.get("mobileMenuNeeded") === "on",
       group_id: nullableId(formData, "groupId"),
-      priority: num(formData, "priority"),
+      // priorityは意図的に更新しない（2026-08-07廃止）。表示順は進行グループの並び順が
+      // 最優先で、グループ内の細かい順序はドラッグ&ドロップ（reorderPages）でのみ変更する。
     })
     .eq("id", pageId);
 
@@ -154,4 +171,35 @@ export async function saveGroups(formData: FormData) {
   }
 
   redirect(`/projects/${projectId}/directory-map?saved=1`);
+}
+
+// ドラッグ&ドロップによるページの並び替え（2026-08-07新規要件）。
+// 同じ親（兄弟ページ）の範囲内でのみpriorityを振り直すため、親子階層は自動的にセットで動く。
+// クライアントからフォーム送信ではなく直接呼び出されるため、redirectはせずrevalidatePathのみ行う。
+export async function reorderPages(
+  projectId: string,
+  parentId: string | null,
+  orderedIds: string[],
+) {
+  if (!projectId) throw new Error("プロジェクトIDが指定されていません");
+
+  const supabase = await createClient();
+  const { data: allPages, error: fetchError } = await supabase
+    .from("pages")
+    .select("id, parent_id")
+    .eq("project_id", projectId);
+  if (fetchError) throw new Error(fetchError.message);
+
+  const newPriorities = reorderSiblingPriorities(allPages ?? [], parentId, orderedIds);
+
+  const results = await Promise.all(
+    [...newPriorities.entries()].map(([id, priority]) =>
+      supabase.from("pages").update({ priority }).eq("id", id),
+    ),
+  );
+  const failed = results.find((r) => r.error);
+  if (failed?.error) throw new Error(failed.error.message);
+
+  revalidatePath(`/projects/${projectId}/directory-map`);
+  revalidatePath(`/projects/${projectId}/estimate`);
 }

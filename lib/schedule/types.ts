@@ -19,6 +19,11 @@ export type SchedulePageInput = {
   complexity: string;
   wireNeeded: boolean;
   copyNeeded: boolean;
+  // 2026-08-07新規要件：デザイン・コーディングを個別に「なし」にでき、その場合は該当スケジュール
+  // 工程自体を挿入しない（CMS構築のcmsTier未設定時と同じスキップ方式、computeSchedule.ts参照）。
+  // 省略時（既存テストのフィクスチャ等）はtrue扱いにする（`!== false`で判定）。
+  designNeeded?: boolean;
+  codingNeeded?: boolean;
   cmsTier: string | null;
   groupId: string | null;
   priority: number;

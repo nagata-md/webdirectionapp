@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type DragEventHandler } from "react";
 import { deletePage, updatePage } from "./actions";
 import { Button } from "@/components/ui/Button";
 import { Tag } from "@/components/ui/Tag";
@@ -8,11 +8,13 @@ import {
   CMS_TIERS,
   PAGE_TYPES,
   cmsTierLabel,
+  pageDepthPrefix,
   pageTypeLabel,
   type PageNode,
   type ProgressGroup,
 } from "@/lib/pages/constants";
 import { COMPLEXITIES } from "@/lib/master/constants";
+import { ROW_GRID_CLASS } from "./gridLayout";
 
 const inputClass = "rounded-control border border-border-strong px-2.5 py-1.5 text-[13px]";
 
@@ -22,37 +24,67 @@ export function PageRow({
   allPages,
   groups,
   projectId,
+  isDragging,
+  dragHandleProps,
 }: {
   page: PageNode;
   depth: number;
   allPages: PageNode[];
   groups: ProgressGroup[];
   projectId: string;
+  isDragging?: boolean;
+  dragHandleProps?: {
+    draggable: boolean;
+    onDragStart: DragEventHandler<HTMLSpanElement>;
+    onDragEnd: DragEventHandler<HTMLSpanElement>;
+  };
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editingType, setEditingType] = useState(page.type);
-  const children = allPages
-    .filter((p) => p.parent_id === page.id)
-    .sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name));
 
   const groupName = groups.find((g) => g.id === page.group_id)?.name;
-
   const selectableParents = allPages.filter((p) => p.id !== page.id);
 
   return (
-    <div style={{ paddingLeft: depth * 20 }}>
+    <div>
       {!isEditing && (
-        <div className="flex flex-wrap items-center gap-2 border-b border-border py-2">
-          <span className="font-semibold">{page.name}</span>
-          <Tag>{pageTypeLabel(page.type)}</Tag>
-          <Tag>{page.complexity}</Tag>
-          <Tag>{page.wire_needed ? "ワイヤー" : "ワイヤー不要"}</Tag>
-          <Tag>{page.copy_needed ? "コピー" : "コピー不要"}</Tag>
-          {page.cms_tier && <Tag>{cmsTierLabel(page.cms_tier)}</Tag>}
-          {page.mobile_menu_needed && <Tag>スマホ対応メニュー</Tag>}
-          {groupName && <Tag>{groupName}</Tag>}
-          <span className="text-[12px] text-subtle">優先度 {page.priority}</span>
-          <div className="ml-auto flex gap-1.5">
+        <div
+          className={`${ROW_GRID_CLASS} border-b border-border py-2 text-[13px] ${isDragging ? "opacity-40" : ""}`}
+        >
+          <span
+            {...dragHandleProps}
+            title="ドラッグして並び替え"
+            aria-label="ドラッグして並び替え"
+            className="cursor-grab select-none text-center text-subtle hover:text-ink"
+          >
+            ⠿
+          </span>
+          <span
+            style={{ paddingLeft: depth * 10 }}
+            className="truncate font-semibold"
+            title={page.name}
+          >
+            {pageDepthPrefix(depth)}
+            {page.name}
+          </span>
+          <span className="text-[12px] text-muted">{pageTypeLabel(page.type)}</span>
+          <span className="text-[12px] text-muted">{page.complexity}</span>
+          <span>
+            <Tag>{page.wire_needed ? "ワイヤー" : "不要"}</Tag>
+          </span>
+          <span>
+            <Tag>{page.copy_needed ? "コピー" : "不要"}</Tag>
+          </span>
+          <span>
+            <Tag>{page.design_needed ? "デザイン" : "なし"}</Tag>
+          </span>
+          <span>
+            <Tag>{page.coding_needed ? "コーディング" : "なし"}</Tag>
+          </span>
+          <span>{page.cms_tier && <Tag>{cmsTierLabel(page.cms_tier)}</Tag>}</span>
+          <span>{page.mobile_menu_needed && <Tag>スマホ対応</Tag>}</span>
+          <span className="truncate">{groupName && <Tag>{groupName}</Tag>}</span>
+          <div className="flex justify-end gap-1.5">
             <Button type="button" onClick={() => setIsEditing(true)}>
               編集
             </Button>
@@ -139,16 +171,6 @@ export function PageRow({
           </div>
 
           <div>
-            <label className="mb-1 block text-[12px] font-semibold text-muted">優先度</label>
-            <input
-              type="number"
-              name="priority"
-              defaultValue={page.priority}
-              className={`${inputClass} w-20`}
-            />
-          </div>
-
-          <div>
             <label className="mb-1 block text-[12px] font-semibold text-muted">CMS構築費</label>
             <select name="cmsTier" defaultValue={page.cms_tier ?? ""} className={inputClass}>
               {CMS_TIERS.map((tier) => (
@@ -166,6 +188,14 @@ export function PageRow({
           <label className="flex items-center gap-1.5 pb-2 text-[13px]">
             <input type="checkbox" name="copyNeeded" defaultChecked={page.copy_needed} />
             コピー要
+          </label>
+          <label className="flex items-center gap-1.5 pb-2 text-[13px]">
+            <input type="checkbox" name="designSkip" defaultChecked={!page.design_needed} />
+            デザインなし
+          </label>
+          <label className="flex items-center gap-1.5 pb-2 text-[13px]">
+            <input type="checkbox" name="codingSkip" defaultChecked={!page.coding_needed} />
+            コーディングなし
           </label>
           {editingType === "top" && (
             <label className="flex items-center gap-1.5 pb-2 text-[13px]">
@@ -186,17 +216,6 @@ export function PageRow({
           </Button>
         </form>
       )}
-
-      {children.map((child) => (
-        <PageRow
-          key={child.id}
-          page={child}
-          depth={depth + 1}
-          allPages={allPages}
-          groups={groups}
-          projectId={projectId}
-        />
-      ))}
     </div>
   );
 }

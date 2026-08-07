@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { PageNode, ProgressGroup } from "@/lib/pages/constants";
 import { GroupsEditor } from "./GroupsEditor";
 import { PageForm } from "./PageForm";
-import { PageRow } from "./PageRow";
+import { DirectoryMapTree } from "./DirectoryMapTree";
 
 export default async function DirectoryMapPage({
   params,
@@ -17,7 +17,7 @@ export default async function DirectoryMapPage({
     supabase
       .from("pages")
       .select(
-        "id, name, type, complexity, parent_id, wire_needed, copy_needed, cms_tier, mobile_menu_needed, group_id, priority",
+        "id, name, type, complexity, parent_id, wire_needed, copy_needed, design_needed, coding_needed, cms_tier, mobile_menu_needed, group_id, priority",
       )
       .eq("project_id", projectId),
     supabase
@@ -29,10 +29,6 @@ export default async function DirectoryMapPage({
 
   const allPages = (pages ?? []) as PageNode[];
   const allGroups = (groups ?? []) as ProgressGroup[];
-
-  const rootPages = allPages
-    .filter((p) => !p.parent_id)
-    .sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name));
 
   return (
     <div>
@@ -48,19 +44,7 @@ export default async function DirectoryMapPage({
 
       <Panel>
         <SectionLabel>ディレクトリマップ</SectionLabel>
-        {rootPages.length === 0 && (
-          <p className="text-[13px] text-subtle">ページが登録されていません</p>
-        )}
-        {rootPages.map((page) => (
-          <PageRow
-            key={page.id}
-            page={page}
-            depth={0}
-            allPages={allPages}
-            groups={allGroups}
-            projectId={projectId}
-          />
-        ))}
+        <DirectoryMapTree projectId={projectId} initialPages={allPages} groups={allGroups} />
       </Panel>
     </div>
   );

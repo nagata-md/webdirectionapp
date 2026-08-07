@@ -110,6 +110,10 @@ export function computeSchedule(input: ComputeScheduleInput): ComputeScheduleRes
         // CMS構築はcms_tierが設定されているページのみ対象（Phase 12）。
         // 対象外のページはこの工程自体をスキップする（readyTimeも進めない）。
         if (phase === "CMS構築" && !page.cmsTier) continue;
+        // デザイン・コーディングは個別に「なし」に設定されたページで工程自体をスキップする
+        // （2026-08-07新規要件。CMS構築と同じスキップ方式）。
+        if (phase === "デザイン" && page.designNeeded === false) continue;
+        if (phase === "コーディング" && page.codingNeeded === false) continue;
 
         const override = findOverride(overrides, page.id, phase);
         let start: DateString;

@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { sortPagesAsTree } from "@/lib/pages/constants";
 import { computeSchedule } from "./computeSchedule";
 import type {
   ComputeScheduleResult,
@@ -39,7 +40,9 @@ export async function loadProjectSchedule(
         .single(),
       supabase
         .from("pages")
-        .select("id, type, complexity, wire_needed, copy_needed, cms_tier, group_id, priority")
+        .select(
+          "id, name, parent_id, type, complexity, wire_needed, copy_needed, design_needed, coding_needed, cms_tier, group_id, priority",
+        )
         .eq("project_id", projectId),
       supabase
         .from("progress_groups")
@@ -52,12 +55,18 @@ export async function loadProjectSchedule(
         .single(),
     ]);
 
-  const pages: SchedulePageInput[] = (pagesRaw ?? []).map((p) => ({
+  // ガントチャートの行順をディレクトリマップの表示順と一致させる（2026-08-07新規要件）。
+  // computeSchedule()は入力pagesの順序をそのまま結果に反映するため、ここで並べ替えておけば
+  // `schedule.pages`・GanttChartの行順に自動的に伝播する（進行グループはスケジュールの
+  // 起点を揃えるための分類であり表示順には使わない、2026-08-07ユーザー確定方針）。
+  const pages: SchedulePageInput[] = sortPagesAsTree(pagesRaw ?? []).map((p) => ({
     id: p.id,
     type: p.type,
     complexity: p.complexity,
     wireNeeded: p.wire_needed,
     copyNeeded: p.copy_needed,
+    designNeeded: p.design_needed,
+    codingNeeded: p.coding_needed,
     cmsTier: p.cms_tier,
     groupId: p.group_id,
     priority: p.priority,

@@ -54,6 +54,8 @@ const TOP_PHASE_LABELS: Record<string, string> = {
 function isPhaseNeeded(page: EstimatePageInput, phase: string): boolean {
   if (phase === "ワイヤー") return page.wireNeeded;
   if (phase === "コピー") return page.copyNeeded;
+  if (phase === "デザイン") return page.designNeeded !== false;
+  if (phase === "コーディング") return page.codingNeeded !== false;
   return true;
 }
 

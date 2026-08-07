@@ -130,6 +130,46 @@ describe("pageCost", () => {
     );
     expect(cost).toBe(50000 + 60000 + 8000 + 5000 + 30000);
   });
+
+  it("designNeeded=falseの場合はデザイン費用を含めない", () => {
+    const cost = pageCost(
+      {
+        id: "p1",
+        name: "下層",
+        type: "lower",
+        complexity: "M",
+        wireNeeded: true,
+        copyNeeded: true,
+        designNeeded: false,
+        cmsTier: null,
+        mobileMenuNeeded: false,
+      },
+      rates,
+      topRates,
+      0,
+    );
+    expect(cost).toBe(20000 + 25000 + 60000 + 8000 + 5000);
+  });
+
+  it("codingNeeded=falseの場合はコーディング費用を含めない", () => {
+    const cost = pageCost(
+      {
+        id: "p1",
+        name: "下層",
+        type: "lower",
+        complexity: "M",
+        wireNeeded: true,
+        copyNeeded: true,
+        codingNeeded: false,
+        cmsTier: null,
+        mobileMenuNeeded: false,
+      },
+      rates,
+      topRates,
+      0,
+    );
+    expect(cost).toBe(20000 + 25000 + 50000 + 8000 + 5000);
+  });
 });
 
 describe("cmsCost", () => {

@@ -16,7 +16,7 @@ export default async function ShareDirectoryMapPage({
   const { data: pagesRaw } = await admin
     .from("pages")
     .select(
-      "id, name, type, complexity, parent_id, wire_needed, copy_needed, cms_tier, mobile_menu_needed, priority",
+      "id, name, type, complexity, parent_id, wire_needed, copy_needed, design_needed, coding_needed, cms_tier, mobile_menu_needed, priority",
     )
     .eq("project_id", result.link.projectId);
 

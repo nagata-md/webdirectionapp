@@ -262,6 +262,25 @@ describe("computeSchedule", () => {
     expect(p2Phases).toEqual(["構成", "デザイン", "コーディング", "テストアップ", "公開"]);
   });
 
+  it("結果のページ順序は入力pages配列の順序をそのまま保つ（ガントチャートの行順に利用、2026-08-07）", () => {
+    const input: ComputeScheduleInput = {
+      projectStartDate: "2026-01-05",
+      pages: [
+        { id: "c", type: "lower", complexity: "M", wireNeeded: false, copyNeeded: false, cmsTier: null, groupId: null, priority: 1 },
+        { id: "a", type: "lower", complexity: "M", wireNeeded: false, copyNeeded: false, cmsTier: null, groupId: null, priority: 2 },
+        { id: "b", type: "lower", complexity: "M", wireNeeded: false, copyNeeded: false, cmsTier: null, groupId: null, priority: 3 },
+      ],
+      groups: [],
+      parallelByPhase: ALL_LANES_1,
+      master: baseMaster(),
+      overrides: [],
+    };
+
+    const result = computeSchedule(input);
+    // priorityでの並び替えは行われず、呼び出し側が渡した順序（c, a, b）のまま返る
+    expect(result.pages.map((p) => p.pageId)).toEqual(["c", "a", "b"]);
+  });
+
   it("構成工程は並行作業人数の制限に関わらず同一グループの全ページが同日着手する", () => {
     const input: ComputeScheduleInput = {
       projectStartDate: "2026-01-05",
@@ -546,5 +565,63 @@ describe("computeSchedule", () => {
 
     expect(revision.isOverridden).toBe(false);
     expect(revision.start).not.toBe("2099-01-01");
+  });
+
+  it("designNeeded=falseのページはデザイン工程自体がスケジュールから除外される", () => {
+    const input: ComputeScheduleInput = {
+      projectStartDate: "2026-01-05",
+      pages: [
+        {
+          id: "p1",
+          type: "lower",
+          complexity: "M",
+          wireNeeded: true,
+          copyNeeded: true,
+          designNeeded: false,
+          cmsTier: null,
+          groupId: null,
+          priority: 1,
+        },
+      ],
+      groups: [],
+      parallelByPhase: ALL_LANES_1,
+      master: baseMaster(),
+      overrides: [],
+    };
+
+    const result = computeSchedule(input);
+    const p1 = result.pages.find((p) => p.pageId === "p1")!;
+    const phaseNames = p1.phases.filter((ph) => ph.kind === "production").map((ph) => ph.phase);
+
+    expect(phaseNames).toEqual(["構成", "コーディング", "テストアップ", "公開"]);
+  });
+
+  it("codingNeeded=falseのページはコーディング工程自体がスケジュールから除外される", () => {
+    const input: ComputeScheduleInput = {
+      projectStartDate: "2026-01-05",
+      pages: [
+        {
+          id: "p1",
+          type: "lower",
+          complexity: "M",
+          wireNeeded: true,
+          copyNeeded: true,
+          codingNeeded: false,
+          cmsTier: null,
+          groupId: null,
+          priority: 1,
+        },
+      ],
+      groups: [],
+      parallelByPhase: ALL_LANES_1,
+      master: baseMaster(),
+      overrides: [],
+    };
+
+    const result = computeSchedule(input);
+    const p1 = result.pages.find((p) => p.pageId === "p1")!;
+    const phaseNames = p1.phases.filter((ph) => ph.kind === "production").map((ph) => ph.phase);
+
+    expect(phaseNames).toEqual(["構成", "デザイン", "テストアップ", "公開"]);
   });
 });

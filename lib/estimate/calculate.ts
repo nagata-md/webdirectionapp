@@ -13,6 +13,10 @@ export type EstimatePageInput = {
   complexity: string;
   wireNeeded: boolean;
   copyNeeded: boolean;
+  // 2026-08-07新規要件：デザイン・コーディングを個別に「なし」にでき、その場合は該当コストを
+  // 計上しない。省略時（既存テストのフィクスチャ等）はtrue扱いにする（`!== false`で判定）。
+  designNeeded?: boolean;
+  codingNeeded?: boolean;
   cmsTier: string | null;
   mobileMenuNeeded: boolean;
 };
@@ -73,8 +77,8 @@ export function pageCost(
 
   const wire = page.wireNeeded ? (complexityRates["ワイヤー"]?.cost ?? 0) : 0;
   const copy = page.copyNeeded ? (complexityRates["コピー"]?.cost ?? 0) : 0;
-  const design = complexityRates["デザイン"]?.cost ?? 0;
-  const coding = complexityRates["コーディング"]?.cost ?? 0;
+  const design = page.designNeeded !== false ? (complexityRates["デザイン"]?.cost ?? 0) : 0;
+  const coding = page.codingNeeded !== false ? (complexityRates["コーディング"]?.cost ?? 0) : 0;
   const testup = complexityRates["テストアップ"]?.cost ?? 0;
   const publish = complexityRates["公開"]?.cost ?? 0;
 

@@ -141,7 +141,7 @@ export async function copyProject(formData: FormData) {
     supabase
       .from("pages")
       .select(
-        "id, name, type, complexity, parent_id, wire_needed, copy_needed, cms_tier, mobile_menu_needed, group_id, priority",
+        "id, name, type, complexity, parent_id, wire_needed, copy_needed, design_needed, coding_needed, cms_tier, mobile_menu_needed, group_id, priority",
       )
       .eq("project_id", sourceProjectId),
   ]);
@@ -191,6 +191,8 @@ export async function copyProject(formData: FormData) {
         parent_id: null,
         wire_needed: p.wire_needed,
         copy_needed: p.copy_needed,
+        design_needed: p.design_needed,
+        coding_needed: p.coding_needed,
         cms_tier: p.cms_tier,
         mobile_menu_needed: p.mobile_menu_needed,
         group_id: p.group_id ? (groupIdMap.get(p.group_id) ?? null) : null,

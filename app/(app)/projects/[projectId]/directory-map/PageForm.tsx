@@ -82,11 +82,6 @@ export function PageForm({
       </div>
 
       <div>
-        <label className="mb-1 block text-[12px] font-semibold text-muted">優先度</label>
-        <input type="number" name="priority" defaultValue={0} className={`${inputClass} w-20`} />
-      </div>
-
-      <div>
         <label className="mb-1 block text-[12px] font-semibold text-muted">CMS構築費</label>
         <select name="cmsTier" defaultValue="" className={inputClass}>
           {CMS_TIERS.map((tier) => (
@@ -104,6 +99,14 @@ export function PageForm({
       <label className="flex items-center gap-1.5 pb-2 text-[13px]">
         <input type="checkbox" name="copyNeeded" defaultChecked />
         コピー要
+      </label>
+      <label className="flex items-center gap-1.5 pb-2 text-[13px]">
+        <input type="checkbox" name="designSkip" />
+        デザインなし
+      </label>
+      <label className="flex items-center gap-1.5 pb-2 text-[13px]">
+        <input type="checkbox" name="codingSkip" />
+        コーディングなし
       </label>
       {type === "top" && (
         <label className="flex items-center gap-1.5 pb-2 text-[13px]">

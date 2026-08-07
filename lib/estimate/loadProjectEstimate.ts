@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { loadProjectSchedule } from "@/lib/schedule/loadProjectSchedule";
 import { computeEstimate, type EstimateResult } from "./calculate";
 import { computeAggregatedEstimate, type AggregatedEstimateResult } from "./calculateAggregated";
+import { sortPagesAsTree } from "@/lib/pages/constants";
 
 export type ProjectEstimateData = {
   clientName: string | null;
@@ -29,7 +30,9 @@ export async function loadProjectEstimate(
         .single(),
       supabase
         .from("pages")
-        .select("id, name, type, complexity, wire_needed, copy_needed, cms_tier, mobile_menu_needed")
+        .select(
+          "id, name, type, complexity, parent_id, priority, wire_needed, copy_needed, design_needed, coding_needed, cms_tier, mobile_menu_needed",
+        )
         .eq("project_id", projectId),
       supabase
         .from("estimate_line_items")
@@ -43,13 +46,16 @@ export async function loadProjectEstimate(
       loadProjectSchedule(projectId, supabase),
     ]);
 
-  const pages = (pagesRaw ?? []).map((p) => ({
+  // 見積もりの項目順序をディレクトリマップのツリー表示順と一致させる（2026-08-07新規要件）。
+  const pages = sortPagesAsTree(pagesRaw ?? []).map((p) => ({
     id: p.id,
     name: p.name,
     type: p.type,
     complexity: p.complexity,
     wireNeeded: p.wire_needed,
     copyNeeded: p.copy_needed,
+    designNeeded: p.design_needed,
+    codingNeeded: p.coding_needed,
     cmsTier: p.cms_tier,
     mobileMenuNeeded: p.mobile_menu_needed,
   }));

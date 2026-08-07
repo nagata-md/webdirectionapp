@@ -13,6 +13,12 @@ export function pageTypeLabel(value: string): string {
   return PAGE_TYPES.find((t) => t.value === value)?.label ?? value;
 }
 
+// 子ページの階層を、字下げだけでなく「ー」の連続でも視認しやすくする（2026-08-07新規要件）。
+// depth=1で「ー」、depth=2で「ーー」…をページ名の前に付ける（ルートページはdepth=0で付けない）。
+export function pageDepthPrefix(depth: number): string {
+  return depth > 0 ? `${"ー".repeat(depth)} ` : "";
+}
+
 // ページの進捗ステータス（spec §4.8、DBのCHECK制約と同じ日本語ラベルをそのまま使う）
 export const PAGE_STATUSES = [
   "未着手",
@@ -41,6 +47,8 @@ export type PageNode = {
   parent_id: string | null;
   wire_needed: boolean;
   copy_needed: boolean;
+  design_needed: boolean;
+  coding_needed: boolean;
   cms_tier: string | null;
   mobile_menu_needed: boolean;
   group_id: string | null;
@@ -52,6 +60,43 @@ export type ProgressGroup = {
   name: string;
   sort_order: number;
 };
+
+// 兄弟ページ(同じparent_id)の表示順の比較関数（2026-08-07再改訂）。
+// 進行グループはスケジュールの起点を揃えるための分類であり、表示順とは無関係（ユーザー確定方針）。
+// 表示順は純粋にpriority（ドラッグ&ドロップでのみ変化する内部値）の昇順、同値ならページ名で
+// 安定させる。ディレクトリマップのツリー表示・ドラッグ&ドロップ後の並び替え結果・見積もり／
+// ガントチャートの項目順序で共通して使う。
+export function comparePageSiblings<T extends { priority: number; name: string }>(a: T, b: T): number {
+  return a.priority - b.priority || a.name.localeCompare(b.name);
+}
+
+// ディレクトリマップのツリー表示順（親→子を辿るDFS順）でページをフラットに並べ替える。
+// 見積もり・ガントチャートの項目順序をディレクトリマップの表示順と一致させるために使う
+// （2026-08-07新規要件）。
+export function sortPagesAsTree<
+  T extends { id: string; parent_id: string | null; priority: number; name: string },
+>(pages: T[]): T[] {
+  const childrenByParent = new Map<string | null, T[]>();
+  for (const page of pages) {
+    const key = page.parent_id;
+    const list = childrenByParent.get(key) ?? [];
+    list.push(page);
+    childrenByParent.set(key, list);
+  }
+  for (const list of childrenByParent.values()) {
+    list.sort(comparePageSiblings);
+  }
+
+  const result: T[] = [];
+  function walk(parentId: string | null) {
+    for (const page of childrenByParent.get(parentId) ?? []) {
+      result.push(page);
+      walk(page.id);
+    }
+  }
+  walk(null);
+  return result;
+}
 
 // pageIdをparentIdにした場合に循環参照(自分自身や自分の子孫を親にする)にならないかを判定する。
 export function isDescendant(

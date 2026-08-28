@@ -396,6 +396,47 @@ describe("computeSchedule", () => {
     expect(testupStartIdx - cmsEndIdx).toBeLessThanOrEqual(3); // 週末を挟んでも最大3暦日以内
   });
 
+  it("CMS構築・公開にチェックバック日数を設定すると、チェックバック1の独立区間として積まれる（先方チェック待ちと社内バッファ待ちを区別するため、2026-08-28追加）", () => {
+    const input: ComputeScheduleInput = {
+      projectStartDate: "2026-01-05",
+      pages: [
+        {
+          id: "p1",
+          type: "lower",
+          complexity: "M",
+          wireNeeded: true,
+          copyNeeded: true,
+          cmsTier: "M",
+          groupId: null,
+          priority: 1,
+        },
+      ],
+      groups: [],
+      master: baseMaster({
+        standards: {
+          構成: { checkback: 0, buffer: 0 },
+          デザイン: { checkback: 0, buffer: 0 },
+          コーディング: { checkback: 0, buffer: 0 },
+          "CMS構築": { checkback: 3, buffer: 1 },
+          テストアップ: { checkback: 0, buffer: 0 },
+          公開: { checkback: 0, buffer: 0 },
+        },
+      }),
+      overrides: [],
+    };
+
+    const result = computeSchedule(input);
+    const p1 = result.pages.find((p) => p.pageId === "p1")!;
+    const cms = p1.phases.find((ph) => ph.phase === "CMS構築")!;
+    const cmsCb1 = p1.phases.find((ph) => ph.phase === "CMS構築チェックバック1")!;
+    const testup = p1.phases.find((ph) => ph.phase === "テストアップ")!;
+
+    expect(cmsCb1.kind).toBe("checkback1");
+    expect(cmsCb1.basePhase).toBe("CMS構築");
+    expect(cmsCb1.start > cms.end).toBe(true);
+    expect(testup.start > cmsCb1.end).toBe(true);
+  });
+
   it("2校期間はチェックバック1・2校作業・チェックバック2の3つの独立したセグメントとして積まれる", () => {
     const input: ComputeScheduleInput = {
       projectStartDate: "2026-01-05",

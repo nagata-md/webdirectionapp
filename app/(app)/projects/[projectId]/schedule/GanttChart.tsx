@@ -237,15 +237,19 @@ export function GanttChart({
                 const page = pageById.get(ps.pageId);
                 if (!page) return null;
 
-                // 工程間の待機期間（チェックバック・バッファ）をカレンダー日ベースで算出する
-                const waitSegments: { start: string; end: string }[] = [];
+                // 工程間の待機期間をカレンダー日ベースで算出する。次のセグメントが次工程の
+                // 制作（production）であれば、そこに含まれるのは社内バッファ待ちのみ
+                // （チェックバック分は既にチェックバック1/2の独立区間として個別に描画済み）。
+                // 次のセグメントがチェックバック1/2・2校作業であれば、先方チェック待ちの
+                // 流れの一部（区間の切り替わりに伴う1営業日のつなぎ）として扱う。
+                const waitSegments: { start: string; end: string; isBuffer: boolean }[] = [];
                 for (let i = 0; i < ps.phases.length - 1; i += 1) {
                   const cur = ps.phases[i];
                   const next = ps.phases[i + 1];
                   const waitStart = shiftCalendarDays(cur.end, 1);
                   const waitEnd = shiftCalendarDays(next.start, -1);
                   if (compareDates(waitStart, waitEnd) <= 0) {
-                    waitSegments.push({ start: waitStart, end: waitEnd });
+                    waitSegments.push({ start: waitStart, end: waitEnd, isBuffer: next.kind === "production" });
                   }
                 }
 
@@ -271,8 +275,8 @@ export function GanttChart({
                           start={seg.start}
                           end={seg.end}
                           leftPx={leftPx}
-                          colorClass="bg-phase-wait"
-                          title={`チェックバック・バッファ待ち: ${seg.start} 〜 ${seg.end}`}
+                          colorClass={seg.isBuffer ? "bg-phase-buffer" : "bg-phase-wait"}
+                          title={`${seg.isBuffer ? "社内バッファ待ち" : "先方チェック待ち"}: ${seg.start} 〜 ${seg.end}`}
                           isOffByDate={isOffByDate}
                         />
                       ))}
@@ -358,7 +362,11 @@ export function GanttChart({
         </span>
         <span className="flex items-center gap-1.5">
           <span className="inline-block h-3 w-3 rounded bg-phase-wait" />
-          チェックバック・バッファ待ち
+          先方チェック待ち
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-3 w-3 rounded bg-phase-buffer" />
+          社内バッファ待ち
         </span>
         <span className="flex items-center gap-1.5">
           <span className="inline-block h-3 w-3 rounded ring-2 ring-accent" />

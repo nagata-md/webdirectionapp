@@ -192,9 +192,23 @@ export function computeSchedule(input: ComputeScheduleInput): ComputeScheduleRes
           );
           readyTime = shiftBusinessDays(cursor, (standard.buffer ?? 0) + 1, weeklyOff, holidays);
         } else {
-          // CMS構築・公開は従来通り、チェックバック＋バッファをまとめた待機期間のみ（個別編集は対象外）
-          const wait = (standard.checkback ?? 0) + (standard.buffer ?? 0);
-          readyTime = shiftBusinessDays(end, wait + 1, weeklyOff, holidays);
+          // CMS構築・公開は2校期間を持たないが、チェックバック（先方確認）自体は他工程と同様に
+          // 個別の手動編集可能な区間として積む。バッファのみ、独立区間を持たない暗黙の待機とする。
+          let cursor = end;
+          cursor = pushSubSegment(
+            phases,
+            cursor,
+            `${phase}チェックバック1`,
+            "checkback1",
+            phase,
+            standard.checkback ?? 0,
+            overrides,
+            page.id,
+            weeklyOff,
+            holidays,
+            true,
+          );
+          readyTime = shiftBusinessDays(cursor, (standard.buffer ?? 0) + 1, weeklyOff, holidays);
         }
       }
 

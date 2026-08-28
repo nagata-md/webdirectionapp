@@ -41,7 +41,8 @@ function getBusinessDayRuns(
 }
 
 // 区間を、非稼働日を除いた連続稼働日の区間ごとに描画する（参照専用のためbuttonではなくdiv）。
-// 最終日（end）だけは常に濃い色のセルを重ねて強調する。
+// 最終区間の最終日だけは常に濃い色のセルを重ねて強調する。propsのendそのものは
+// 待機バー（暦日ベースで算出）の場合、土日祝日と一致することがあるため使わない。
 function BarSegments({
   start,
   end,
@@ -58,6 +59,7 @@ function BarSegments({
   isOffByDate: Map<string, boolean>;
 }) {
   const runs = getBusinessDayRuns(start, end, isOffByDate);
+  const lastRun = runs[runs.length - 1];
 
   return (
     <>
@@ -72,11 +74,13 @@ function BarSegments({
           className={`absolute top-0 h-7 rounded ${colorClass}`}
         />
       ))}
-      <div
-        title={title}
-        style={{ left: leftPx(end), width: DAY_WIDTH, filter: DARK_FILTER }}
-        className={`absolute top-0 h-7 rounded ${colorClass}`}
-      />
+      {lastRun && (
+        <div
+          title={title}
+          style={{ left: leftPx(lastRun.end), width: DAY_WIDTH, filter: DARK_FILTER }}
+          className={`absolute top-0 h-7 rounded ${colorClass}`}
+        />
+      )}
     </>
   );
 }
@@ -199,14 +203,14 @@ export function ShareGantt({
                 const page = pageById.get(ps.pageId);
                 if (!page) return null;
 
-                const waitSegments: { start: string; end: string }[] = [];
+                const waitSegments: { start: string; end: string; isBuffer: boolean }[] = [];
                 for (let i = 0; i < ps.phases.length - 1; i += 1) {
                   const cur = ps.phases[i];
                   const next = ps.phases[i + 1];
                   const waitStart = shiftCalendarDays(cur.end, 1);
                   const waitEnd = shiftCalendarDays(next.start, -1);
                   if (compareDates(waitStart, waitEnd) <= 0) {
-                    waitSegments.push({ start: waitStart, end: waitEnd });
+                    waitSegments.push({ start: waitStart, end: waitEnd, isBuffer: next.kind === "production" });
                   }
                 }
 
@@ -225,8 +229,8 @@ export function ShareGantt({
                           start={seg.start}
                           end={seg.end}
                           leftPx={leftPx}
-                          colorClass="bg-phase-wait"
-                          title={`チェックバック・バッファ待ち: ${seg.start} 〜 ${seg.end}`}
+                          colorClass={seg.isBuffer ? "bg-phase-buffer" : "bg-phase-wait"}
+                          title={`${seg.isBuffer ? "社内バッファ待ち" : "先方チェック待ち"}: ${seg.start} 〜 ${seg.end}`}
                           isOffByDate={isOffByDate}
                         />
                       ))}
@@ -280,7 +284,11 @@ export function ShareGantt({
         </span>
         <span className="flex items-center gap-1.5">
           <span className="inline-block h-3 w-3 rounded bg-phase-wait" />
-          チェックバック・バッファ待ち
+          先方チェック待ち
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-3 w-3 rounded bg-phase-buffer" />
+          社内バッファ待ち
         </span>
         <span className="flex items-center gap-1.5">
           <span className="inline-block h-3 w-3 rounded bg-subtle" />

@@ -34,15 +34,6 @@ function baseMaster(overrides: Partial<MasterForSchedule> = {}): MasterForSchedu
   };
 }
 
-const ALL_LANES_1 = {
-  構成: 1,
-  デザイン: 1,
-  コーディング: 1,
-  "CMS構築": 1,
-  テストアップ: 1,
-  公開: 1,
-};
-
 describe("computeSchedule", () => {
   it("単一ページ・待機日数0の場合、工程が連続して積み上がる", () => {
     const input: ComputeScheduleInput = {
@@ -60,7 +51,6 @@ describe("computeSchedule", () => {
         },
       ],
       groups: [],
-      parallelByPhase: ALL_LANES_1,
       master: baseMaster(),
       overrides: [],
     };
@@ -112,8 +102,6 @@ describe("computeSchedule", () => {
         { id: "g1", sortOrder: 1 },
         { id: "g2", sortOrder: 2 },
       ],
-      // 構成レーンを2にして、グループ間で構成レーンの奪い合いが起きないようにする
-      parallelByPhase: { ...ALL_LANES_1, 構成: 2 },
       master: baseMaster(),
       overrides: [],
     };
@@ -130,7 +118,7 @@ describe("computeSchedule", () => {
     expect(result.groupStartDates["g2"]).toBe("2026-01-07");
   });
 
-  it("並行作業レーンが1件のみの場合、2件目のページは1件目のレーン解放を待つ", () => {
+  it("並行作業人数という概念は存在せず、同一条件の複数ページは他ページの状況に関わらず同時にデザインへ着手できる", () => {
     const input: ComputeScheduleInput = {
       projectStartDate: "2026-01-05",
       pages: [
@@ -156,8 +144,6 @@ describe("computeSchedule", () => {
         },
       ],
       groups: [],
-      // 構成は不要(wire/copyともfalseなので1営業日扱い)、デザインのレーンを1に絞って競合させる
-      parallelByPhase: ALL_LANES_1,
       master: baseMaster(),
       overrides: [],
     };
@@ -168,8 +154,9 @@ describe("computeSchedule", () => {
     const p1Design = p1.phases.find((ph) => ph.phase === "デザイン")!;
     const p2Design = p2.phases.find((ph) => ph.phase === "デザイン")!;
 
-    // p1が先にデザインレーンを使うため、p2はp1のデザイン終了を待ってから開始する
-    expect(p2Design.start).toBe(p1Design.end);
+    // p1・p2とも同じ条件で同じreadyTimeに達するため、レーン待ちは発生せず同日に着手する
+    expect(p2Design.start).toBe(p1Design.start);
+    expect(p2Design.end).toBe(p1Design.end);
   });
 
   it("手動オーバーライドされた構成の実効終了日が次グループの起点に反映される", () => {
@@ -201,7 +188,6 @@ describe("computeSchedule", () => {
         { id: "g1", sortOrder: 1 },
         { id: "g2", sortOrder: 2 },
       ],
-      parallelByPhase: { ...ALL_LANES_1, 構成: 2 },
       master: baseMaster(),
       overrides: [
         // p1の構成完了を手動で01-20まで後ろ倒し
@@ -240,7 +226,6 @@ describe("computeSchedule", () => {
         },
       ],
       groups: [],
-      parallelByPhase: ALL_LANES_1,
       master: baseMaster(),
       overrides: [],
     };
@@ -271,7 +256,6 @@ describe("computeSchedule", () => {
         { id: "b", type: "lower", complexity: "M", wireNeeded: false, copyNeeded: false, cmsTier: null, groupId: null, priority: 3 },
       ],
       groups: [],
-      parallelByPhase: ALL_LANES_1,
       master: baseMaster(),
       overrides: [],
     };
@@ -281,7 +265,7 @@ describe("computeSchedule", () => {
     expect(result.pages.map((p) => p.pageId)).toEqual(["c", "a", "b"]);
   });
 
-  it("構成工程は並行作業人数の制限に関わらず同一グループの全ページが同日着手する", () => {
+  it("同一進行グループの全ページは構成工程を同日に着手する", () => {
     const input: ComputeScheduleInput = {
       projectStartDate: "2026-01-05",
       pages: [
@@ -317,8 +301,6 @@ describe("computeSchedule", () => {
         },
       ],
       groups: [{ id: "g1", sortOrder: 1 }],
-      // 構成のレーンは1のみ。他の工程のレーンも1のままだが、構成は制限を無視する想定
-      parallelByPhase: ALL_LANES_1,
       master: baseMaster(),
       overrides: [],
     };
@@ -328,7 +310,7 @@ describe("computeSchedule", () => {
       (id) => result.pages.find((p) => p.pageId === id)!.phases.find((ph) => ph.phase === "構成")!.start,
     );
 
-    // 構成レーンが1でも、3ページとも同じ開始日(プロジェクト開始日)になる
+    // 3ページとも同じ開始日(プロジェクト開始日)になる
     expect(starts).toEqual(["2026-01-05", "2026-01-05", "2026-01-05"]);
   });
 
@@ -348,7 +330,6 @@ describe("computeSchedule", () => {
         },
       ],
       groups: [],
-      parallelByPhase: ALL_LANES_1,
       master: baseMaster({
         standards: {
           構成: { checkback: 2, buffer: 1, secondDraftDays: 3, secondCheckbackDays: 3 },
@@ -389,7 +370,6 @@ describe("computeSchedule", () => {
         },
       ],
       groups: [],
-      parallelByPhase: ALL_LANES_1,
       master: baseMaster({
         standards: {
           構成: { checkback: 0, buffer: 0 },
@@ -432,7 +412,6 @@ describe("computeSchedule", () => {
         },
       ],
       groups: [],
-      parallelByPhase: ALL_LANES_1,
       master: baseMaster({
         standards: {
           構成: { checkback: 2, buffer: 1, secondDraftDays: 3, secondCheckbackDays: 3 },
@@ -485,7 +464,6 @@ describe("computeSchedule", () => {
         },
       ],
       groups: [],
-      parallelByPhase: ALL_LANES_1,
       master: baseMaster({
         standards: {
           構成: { checkback: 2, buffer: 1, secondDraftDays: 3, secondCheckbackDays: 3 },
@@ -538,7 +516,6 @@ describe("computeSchedule", () => {
         },
       ],
       groups: [],
-      parallelByPhase: ALL_LANES_1,
       master: baseMaster({
         standards: {
           構成: { checkback: 2, buffer: 1, secondDraftDays: 3, secondCheckbackDays: 3 },
@@ -584,7 +561,6 @@ describe("computeSchedule", () => {
         },
       ],
       groups: [],
-      parallelByPhase: ALL_LANES_1,
       master: baseMaster(),
       overrides: [],
     };
@@ -613,7 +589,6 @@ describe("computeSchedule", () => {
         },
       ],
       groups: [],
-      parallelByPhase: ALL_LANES_1,
       master: baseMaster(),
       overrides: [],
     };

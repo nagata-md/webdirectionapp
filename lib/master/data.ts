@@ -5,7 +5,6 @@ import { decrypt } from "@/lib/crypto";
 import type {
   CmsRates,
   Holiday,
-  ParallelByPhase,
   Rates,
   Standards,
   TopRates,
@@ -21,7 +20,6 @@ export type MasterSettings = {
   holidays: Holiday[];
   direction_monthly_rate: number;
   mobile_menu_rate: number;
-  default_parallel_by_phase: ParallelByPhase;
   tax_rate: number;
   issuer_company_name: string | null;
   issuer_address: string | null;
@@ -34,7 +32,7 @@ export type MasterSettings = {
 
 // ai_api_keyは絶対に含めない（DB側でもauthenticatedからのSELECTを禁止済み、spec §6・§8）。
 const MASTER_SAFE_COLUMNS =
-  "id, rates, top_rates, cms_rates, standards, weekly_off, holidays, direction_monthly_rate, mobile_menu_rate, default_parallel_by_phase, tax_rate, issuer_company_name, issuer_address, issuer_phone, issuer_stamp_image_url, estimate_validity_days, ai_model, updated_at";
+  "id, rates, top_rates, cms_rates, standards, weekly_off, holidays, direction_monthly_rate, mobile_menu_rate, tax_rate, issuer_company_name, issuer_address, issuer_phone, issuer_stamp_image_url, estimate_validity_days, ai_model, updated_at";
 
 export async function getMasterSettings(): Promise<MasterSettings> {
   const supabase = await createClient();

@@ -21,7 +21,7 @@ type SharePageNode = {
 const SHARE_ROW_GRID_CLASS =
   "grid grid-cols-[minmax(170px,1.6fr)_60px_44px_70px_70px_70px_78px_84px_104px] items-center gap-x-2 gap-y-1";
 
-// 外部共有では優先度・進行グループの並行作業人数設定など内部運用項目は表示しない（spec §4.10）
+// 外部共有では優先度・進行グループなど内部運用項目は表示しない（spec §4.10）
 function ShareDirectoryMapRow({
   page,
   depth,

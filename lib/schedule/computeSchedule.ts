@@ -1,7 +1,6 @@
 import { SCHEDULE_PHASES, SECOND_DRAFT_PHASES, type SchedulePhase } from "@/lib/master/constants";
 import { maxDate, shiftBusinessDays, type DateString } from "./businessDay";
 import { buildGroupBuckets } from "./groupSequencer";
-import { createLaneState, reserveLane } from "./laneAllocator";
 import type {
   ComputeScheduleInput,
   OverrideInput,
@@ -79,13 +78,12 @@ function pushSubSegment(
 }
 
 export function computeSchedule(input: ComputeScheduleInput): ComputeScheduleResult {
-  const { projectStartDate, pages, groups, parallelByPhase, master, overrides } = input;
+  const { projectStartDate, pages, groups, master, overrides } = input;
   const { weeklyOff, holidays, standards } = master;
 
   const buckets = buildGroupBuckets(groups, pages);
   const pageById = new Map(pages.map((p) => [p.id, p]));
 
-  const laneState = createLaneState(parallelByPhase, SCHEDULE_PHASES, projectStartDate);
   const groupStartDates: Record<string, DateString> = {};
   const pageSchedules = new Map<string, PageSchedule>();
 
@@ -122,17 +120,10 @@ export function computeSchedule(input: ComputeScheduleInput): ComputeScheduleRes
         if (override) {
           start = override.overrideStart;
           end = override.overrideEnd;
-        } else if (phase === "構成") {
-          // 構成工程は並行作業人数の制限を適用せず、グループ内の全ページが常に同日着手する
-          // （2026-08-03改訂：レーン待ちによる開始日のズレを構成工程では発生させない）。
+        } else {
           const duration = phaseDurationDays(page, phase, master);
           start = shiftBusinessDays(readyTime, 0, weeklyOff, holidays);
           end = shiftBusinessDays(start, duration - 1, weeklyOff, holidays);
-        } else {
-          const duration = phaseDurationDays(page, phase, master);
-          const reserved = reserveLane(laneState, phase, readyTime, duration, weeklyOff, holidays);
-          start = reserved.start;
-          end = reserved.end;
         }
 
         phases.push({

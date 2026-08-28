@@ -47,7 +47,8 @@ function getBusinessDayRuns(
 }
 
 // 工程バー・待機バーを、非稼働日を除いた連続稼働日の区間ごとに描画する。
-// 最終日（end）だけは常に濃い色のセルを重ねて強調する（endは工程エンジンにより必ず稼働日になる）。
+// 最終区間の最終日だけは常に濃い色のセルを重ねて強調する。propsのendそのものは
+// 待機バー（暦日ベースで算出）の場合、土日祝日と一致することがあるため使わない。
 function BarSegments({
   start,
   end,
@@ -68,6 +69,7 @@ function BarSegments({
   isOffByDate: Map<string, boolean>;
 }) {
   const runs = getBusinessDayRuns(start, end, isOffByDate);
+  const lastRun = runs[runs.length - 1];
 
   return (
     <>
@@ -84,13 +86,15 @@ function BarSegments({
           className={`absolute top-0 h-7 rounded ${colorClass} ${ringClass ?? ""}`}
         />
       ))}
-      <button
-        type="button"
-        onClick={onClick}
-        title={title}
-        style={{ left: leftPx(end), width: DAY_WIDTH, filter: DARK_FILTER }}
-        className={`absolute top-0 h-7 rounded ${colorClass} ${ringClass ?? ""}`}
-      />
+      {lastRun && (
+        <button
+          type="button"
+          onClick={onClick}
+          title={title}
+          style={{ left: leftPx(lastRun.end), width: DAY_WIDTH, filter: DARK_FILTER }}
+          className={`absolute top-0 h-7 rounded ${colorClass} ${ringClass ?? ""}`}
+        />
+      )}
     </>
   );
 }

@@ -65,7 +65,6 @@ export type ComputeScheduleInput = {
   projectStartDate: DateString;
   pages: SchedulePageInput[];
   groups: ProgressGroupInput[];
-  parallelByPhase: Record<string, number>;
   master: MasterForSchedule;
   overrides: OverrideInput[];
 };

@@ -192,7 +192,7 @@ export default async function MasterPage() {
             </table>
           </div>
 
-          <SectionLabel>標準待機日数・並行作業人数デフォルト</SectionLabel>
+          <SectionLabel>標準待機日数</SectionLabel>
           <div className="mb-5 overflow-x-auto">
             <table className="w-full min-w-[560px] border-collapse text-[13px]">
               <thead>
@@ -212,15 +212,11 @@ export default async function MasterPage() {
                   <th className="border-b-2 border-navy bg-surface-subtle px-2 py-2 text-left font-label text-[11px] uppercase tracking-wide text-muted">
                     バッファ日数
                   </th>
-                  <th className="border-b-2 border-navy bg-surface-subtle px-2 py-2 text-left font-label text-[11px] uppercase tracking-wide text-muted">
-                    並行作業人数（既定値）
-                  </th>
                 </tr>
               </thead>
               <tbody>
                 {SCHEDULE_PHASES.map((phase) => {
                   const standard = master.standards?.[phase];
-                  const parallel = master.default_parallel_by_phase?.[phase];
                   const hasSecondDraft = (SECOND_DRAFT_PHASES as readonly string[]).includes(phase);
                   return (
                     <tr key={phase} className="border-b border-border">
@@ -267,16 +263,6 @@ export default async function MasterPage() {
                           defaultValue={standard?.buffer ?? 0}
                           className={numberInputClass}
                           aria-label={`${phase} バッファ日数`}
-                        />
-                      </td>
-                      <td className="px-2 py-1.5">
-                        <input
-                          type="number"
-                          min={1}
-                          name={`parallel.${phase}`}
-                          defaultValue={parallel ?? 1}
-                          className={numberInputClass}
-                          aria-label={`${phase} 並行作業人数`}
                         />
                       </td>
                     </tr>

@@ -15,7 +15,6 @@ export type ProjectScheduleData = {
   projectStartDate: string | null;
   pages: SchedulePageInput[];
   groups: ProgressGroupInput[];
-  parallelByPhase: Record<string, number>;
   master: MasterForSchedule;
   overrides: OverrideInput[];
   schedule: ComputeScheduleResult | null;
@@ -35,7 +34,7 @@ export async function loadProjectSchedule(
     await Promise.all([
       supabase
         .from("projects")
-        .select("start_date, parallel_by_phase")
+        .select("start_date")
         .eq("id", projectId)
         .single(),
       supabase
@@ -51,7 +50,7 @@ export async function loadProjectSchedule(
         .order("sort_order"),
       supabase
         .from("master")
-        .select("rates, top_rates, cms_rates, standards, weekly_off, holidays, default_parallel_by_phase")
+        .select("rates, top_rates, cms_rates, standards, weekly_off, holidays")
         .single(),
     ]);
 
@@ -104,11 +103,6 @@ export async function loadProjectSchedule(
     holidays: masterRaw?.holidays ?? [],
   };
 
-  const parallelByPhase: Record<string, number> = {
-    ...(masterRaw?.default_parallel_by_phase ?? {}),
-    ...(project?.parallel_by_phase ?? {}),
-  };
-
   const projectStartDate = project?.start_date ?? null;
 
   const schedule = projectStartDate
@@ -116,7 +110,6 @@ export async function loadProjectSchedule(
         projectStartDate,
         pages,
         groups,
-        parallelByPhase,
         master,
         overrides,
       })
@@ -126,7 +119,6 @@ export async function loadProjectSchedule(
     projectStartDate,
     pages,
     groups,
-    parallelByPhase,
     master,
     overrides,
     schedule,

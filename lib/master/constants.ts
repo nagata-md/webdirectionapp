@@ -31,7 +31,7 @@ export type SchedulePhase = (typeof SCHEDULE_PHASES)[number];
 
 // ガントチャート表示用のラベル（2026-08-03改訂）。ページ単位の「公開」工程は、
 // 実際にはサイト全体が同時公開されるまでの「作業完了」を意味するため表示名を変える。
-// 内部キー（DB・standards・parallelByPhase等のjsonbキー）は従来通り"公開"のまま変更しない。
+// 内部キー（DB・standards等のjsonbキー）は従来通り"公開"のまま変更しない。
 export function schedulePhaseLabel(phase: SchedulePhase): string {
   return phase === "公開" ? "作業完了" : phase;
 }
@@ -61,8 +61,6 @@ export type Standards = Record<SchedulePhase, StandardEntry>;
 
 // 2校期間を適用するスケジュール工程（構成・デザイン・コーディング・テストアップのみ）
 export const SECOND_DRAFT_PHASES: readonly SchedulePhase[] = ["構成", "デザイン", "コーディング", "テストアップ"];
-
-export type ParallelByPhase = Record<SchedulePhase, number>;
 
 export type Holiday = { date: string; label: string };
 

@@ -105,7 +105,7 @@ export async function copyProject(formData: FormData) {
 
   const { data: source, error: sourceError } = await supabase
     .from("projects")
-    .select("project_name, client_name, start_date, parallel_by_phase")
+    .select("project_name, client_name, start_date")
     .eq("id", sourceProjectId)
     .single();
   if (sourceError || !source) {
@@ -118,7 +118,6 @@ export async function copyProject(formData: FormData) {
       project_name: `${source.project_name}のコピー`,
       client_name: source.client_name,
       start_date: source.start_date,
-      parallel_by_phase: source.parallel_by_phase,
     })
     .select("id")
     .single();

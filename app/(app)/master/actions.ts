@@ -88,7 +88,6 @@ export async function saveScheduleMaster(formData: FormData) {
     string,
     { checkback: number; buffer: number; secondDraftDays: number; secondCheckbackDays: number }
   > = {};
-  const defaultParallelByPhase: Record<string, number> = {};
   for (const phase of SCHEDULE_PHASES) {
     standards[phase] = {
       checkback: num(formData, `standards.${phase}.checkback`),
@@ -96,7 +95,6 @@ export async function saveScheduleMaster(formData: FormData) {
       secondDraftDays: num(formData, `standards.${phase}.secondDraftDays`),
       secondCheckbackDays: num(formData, `standards.${phase}.secondCheckbackDays`),
     };
-    defaultParallelByPhase[phase] = num(formData, `parallel.${phase}`);
   }
 
   const { error } = await supabase
@@ -106,7 +104,6 @@ export async function saveScheduleMaster(formData: FormData) {
       top_rates: topRates,
       cms_rates: cmsRates,
       standards,
-      default_parallel_by_phase: defaultParallelByPhase,
     })
     .eq("id", id);
 

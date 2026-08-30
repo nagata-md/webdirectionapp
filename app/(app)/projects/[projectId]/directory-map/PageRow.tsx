@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, type DragEventHandler } from "react";
+import { useEffect, useState, type DragEventHandler } from "react";
 import { deletePage, updatePage } from "./actions";
 import { Button } from "@/components/ui/Button";
+import { Modal } from "@/components/ui/Modal";
 import { Tag } from "@/components/ui/Tag";
 import {
   CMS_TIERS,
@@ -41,6 +42,27 @@ export function PageRow({
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editingType, setEditingType] = useState(page.type);
+  const [isSaving, setIsSaving] = useState(false);
+  const [showSavedModal, setShowSavedModal] = useState(false);
+
+  useEffect(() => {
+    if (!showSavedModal) return;
+    const timer = setTimeout(() => setShowSavedModal(false), 1500);
+    return () => clearTimeout(timer);
+  }, [showSavedModal]);
+
+  async function handleSave(formData: FormData) {
+    setIsSaving(true);
+    try {
+      await updatePage(formData);
+      setIsEditing(false);
+      setShowSavedModal(true);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "保存に失敗しました");
+    } finally {
+      setIsSaving(false);
+    }
+  }
 
   const groupName = groups.find((g) => g.id === page.group_id)?.name;
   const selectableParents = allPages.filter((p) => p.id !== page.id);
@@ -108,7 +130,7 @@ export function PageRow({
 
       {isEditing && (
         <form
-          action={updatePage}
+          action={handleSave}
           className="mb-2 flex flex-wrap items-end gap-3 rounded-panel border border-border-strong bg-surface-subtle p-3"
         >
           <input type="hidden" name="projectId" value={projectId} readOnly />
@@ -208,14 +230,18 @@ export function PageRow({
             </label>
           )}
 
-          <Button type="submit" variant="primary">
-            保存
+          <Button type="submit" variant="primary" disabled={isSaving}>
+            {isSaving ? "保存中..." : "保存"}
           </Button>
-          <Button type="button" onClick={() => setIsEditing(false)}>
+          <Button type="button" onClick={() => setIsEditing(false)} disabled={isSaving}>
             キャンセル
           </Button>
         </form>
       )}
+
+      <Modal open={showSavedModal} onClose={() => setShowSavedModal(false)}>
+        <p className="text-center text-[14px] font-semibold text-accent">✓ 保存しました</p>
+      </Modal>
     </div>
   );
 }

@@ -104,7 +104,9 @@ export async function updatePage(formData: FormData) {
 
   if (error) throw new Error(error.message);
 
-  redirect(`/projects/${projectId}/directory-map?saved=1`);
+  // 編集フォームはページ遷移を伴わずクライアント側で完結させる（画面上部への
+  // ジャンプを避けるため、2026-08-31修正）。一覧側の再取得のみ行う。
+  revalidatePath(`/projects/${projectId}/directory-map`);
 }
 
 export async function deletePage(formData: FormData) {
